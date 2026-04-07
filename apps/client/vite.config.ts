@@ -7,11 +7,12 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@riftborn/shared': path.resolve(
-        __dirname,
-        '../../packages/shared/src/index.ts',
-      ),
+      // @riftborn/shared resolved through node_modules (pnpm workspace symlink → dist/index.js)
+      // Vite pre-bundles it via optimizeDeps, converting CJS→ESM correctly
     },
+  },
+  optimizeDeps: {
+    include: ['@riftborn/shared'],
   },
   server: {
     port: 5173,

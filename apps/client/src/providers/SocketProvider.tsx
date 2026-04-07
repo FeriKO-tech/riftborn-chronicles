@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useAuthStore } from '../store/auth.store';
 
 // ── Event types pushed from server ────────────────────────────────────────────
 export interface SocketEvents {
@@ -84,7 +85,17 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const isAuthenticated = useAuthStore((s) => !!s.accessToken);
+
   useEffect(() => {
+    if (!isAuthenticated) {
+      intentionalClose.current = true;
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      wsRef.current?.close();
+      wsRef.current = null;
+      setStatus('disconnected');
+      return;
+    }
     intentionalClose.current = false;
     connect();
     return () => {
@@ -92,7 +103,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       wsRef.current?.close();
     };
-  }, [connect]);
+  }, [connect, isAuthenticated]);
 
   const on = useCallback(
     <T extends SocketEventType>(

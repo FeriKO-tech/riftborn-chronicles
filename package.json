@@ -8,7 +8,7 @@
     "build:shared": "pnpm --filter @riftborn/shared run build",
     "test": "pnpm --filter @riftborn/server run test",
     "test:ci": "pnpm --filter @riftborn/server run test:cov",
-    "dev:client": "pnpm --filter @riftborn/client run dev",
+    "dev:client": "pnpm --filter @riftborn/shared run build && pnpm --filter @riftborn/client run dev",
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d",
