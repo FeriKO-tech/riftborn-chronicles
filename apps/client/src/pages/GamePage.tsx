@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { usePixiApp } from '../game/usePixiApp';
-import type { BattleSceneState } from '../game/usePixiApp';
+import { useCombatScene } from '../hooks/useCombatScene';
+import BattleHUD from '../components/BattleHUD';
 import { useAuthStore } from '../store/auth.store';
 import { usePlayerStore } from '../store/player.store';
 import { dailyRewardApi } from '../api/daily-reward.api';
@@ -182,11 +182,12 @@ function RightPanel({
 
 export default function GamePage() {
   const canvasRef = useRef<HTMLDivElement>(null);
-  const sceneStateRef = useRef<BattleSceneState>({
-    playerName: 'Hero', playerClass: 'VOIDBLADE', playerHpPct: 1,
-    enemyName: 'Enemy', enemyHpPct: 1, battling: false,
-  });
-  usePixiApp(canvasRef, sceneStateRef);
+  const profile = useAuthStore((s) => s.player);
+  const combatScene = useCombatScene(
+    canvasRef,
+    profile?.class ?? 'VOIDBLADE',
+    profile?.name ?? 'Hero',
+  );
 
   // ── Data hooks ─────────────────────────────────────────────────────────────
   const { data: playerStateData } = usePlayerState();
@@ -195,7 +196,6 @@ export default function GamePage() {
   const { data: offlinePreview } = useOfflineRewardPreview();
   const claimOffline = useClaimOfflineReward();
 
-  // Zustand for auth identity (name, class — set at login, lightweight)
   const authPlayer = useAuthStore((s) => s.player);
   const playerState = usePlayerStore((s) => s.playerState);
 
@@ -285,22 +285,11 @@ export default function GamePage() {
   }, [autoBattle, battleSpeed]);
 
   // ── Derived display values ─────────────────────────────────────────────────
-  const profile = playerStateData?.profile ?? authPlayer ?? null;
+  const displayProfile = playerStateData?.profile ?? authPlayer ?? null;
   const currencies = playerState?.currencies ?? playerStateData?.currencies ?? null;
   const progress = stageData;
-  const questsReady = 0; // incremented when QuestsPanel is open — placeholder
+  const questsReady = 0;
 
-  // Sync scene state ref (read by PixiJS ticker every frame)
-  sceneStateRef.current = {
-    playerName: profile?.name ?? 'Hero',
-    playerClass: profile?.class ?? 'VOIDBLADE',
-    playerHpPct: 1,
-    enemyName: progress?.currentRoom === 10 ? 'Zone Boss'
-      : progress?.currentRoom === 5 ? 'Elite Guard'
-      : `Z${progress?.currentZone ?? 1}-R${progress?.currentRoom ?? 1}`,
-    enemyHpPct: 1,
-    battling: advanceRoom.isPending,
-  };
 
   const handleTab = (id: string) => {
     setActiveTab(id);
@@ -317,7 +306,7 @@ export default function GamePage() {
       <GameLayout
         topBar={
           <HUD
-            profile={profile}
+            profile={displayProfile}
             currencies={currencies}
             currentZone={progress?.currentZone}
             currentRoom={progress?.currentRoom}
@@ -332,7 +321,20 @@ export default function GamePage() {
             highestZone={progress?.highestZone}
           />
         }
-        center={<div ref={canvasRef} style={{ width: '100%', height: '100%' }} />}
+        center={
+          <div ref={canvasRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+            <BattleHUD
+              zoneName={combatScene.zoneName}
+              kills={combatScene.kills}
+              requiredKills={combatScene.requiredKills}
+              bossUnlocked={combatScene.bossUnlocked}
+              bossActive={combatScene.bossActive}
+              bossName={combatScene.bossName}
+              zoneCleared={combatScene.zoneCleared}
+              onBossClick={combatScene.triggerBoss}
+            />
+          </div>
+        }
         right={
           <RightPanel
             isPending={advanceRoom.isPending}
