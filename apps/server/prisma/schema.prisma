@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlayerClass {
+  VOIDBLADE
+  AETHERMAGE
+  IRONVEIL
+}
+
+model Account {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  player        Player?
+  refreshTokens RefreshToken[]
+
+  @@map("accounts")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  accountId String    @map("account_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+model Player {
+  id            String      @id @default(uuid())
+  accountId     String      @unique @map("account_id")
+  name          String      @unique
+  level         Int         @default(1)
+  class         PlayerClass
+  powerScore    BigInt      @default(0) @map("power_score")
+  experience    BigInt      @default(0)
+  vipLevel      Int         @default(0) @map("vip_level")
+  vipExp        Int         @default(0) @map("vip_exp")
+  lastHeartbeat DateTime    @default(now()) @map("last_heartbeat")
+  lastLoginAt   DateTime?   @map("last_login_at")
+  loginStreak   Int         @default(0) @map("login_streak")
+  totalPlaytime Int         @default(0) @map("total_playtime")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  account           Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  currencies        PlayerCurrencies?
+  stageProgress     StageProgress?
+  offlineRewardLogs OfflineRewardLog[]
+
+  @@index([name])
+  @@map("players")
+}
+
+model PlayerCurrencies {
+  id             String   @id @default(uuid())
+  playerId       String   @unique @map("player_id")
+  goldShards     BigInt   @default(500) @map("gold_shards")
+  voidCrystals   Int      @default(0) @map("void_crystals")
+  resonanceCores Int      @default(150) @map("resonance_cores")
+  forgeDust      Int      @default(0) @map("forge_dust")
+  echoShards     Int      @default(0) @map("echo_shards")
+  arenaMarks     Int      @default(0) @map("arena_marks")
+  bossSeals      Int      @default(0) @map("boss_seals")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("player_currencies")
+}
+
+model StageProgress {
+  id          String   @id @default(uuid())
+  playerId    String   @unique @map("player_id")
+  currentZone Int      @default(1) @map("current_zone")
+  currentRoom Int      @default(1) @map("current_room")
+  highestZone Int      @default(0) @map("highest_zone")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("stage_progress")
+}
+
+model OfflineRewardLog {
+  id         String   @id @default(uuid())
+  playerId   String   @map("player_id")
+  idleHours  Decimal  @map("idle_hours") @db.Decimal(6, 2)
+  goldEarned BigInt   @map("gold_earned")
+  multiplier Decimal  @default(1.0) @db.Decimal(4, 2)
+  claimedAt  DateTime @default(now()) @map("claimed_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId, claimedAt(sort: Desc)])
+  @@map("offline_reward_logs")
+}

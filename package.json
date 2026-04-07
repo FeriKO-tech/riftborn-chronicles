@@ -1,0 +1,37 @@
+{
+  "name": "riftborn-chronicles",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm dev:server\" \"pnpm dev:client\" --names \"server,client\" --prefix-colors \"cyan,magenta\"",
+    "dev:server": "pnpm --filter @riftborn/shared run build && pnpm --filter @riftborn/server run dev",
+    "build:shared": "pnpm --filter @riftborn/shared run build",
+    "dev:client": "pnpm --filter @riftborn/client run dev",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "infra:logs": "docker compose -f infra/docker-compose.yml logs -f",
+    "db:migrate": "pnpm --filter @riftborn/server run db:migrate",
+    "db:seed": "pnpm --filter @riftborn/server run db:seed",
+    "db:studio": "pnpm --filter @riftborn/server run db:studio"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/client",
+      "@prisma/engines",
+      "bcrypt",
+      "esbuild",
+      "prisma"
+    ]
+  }
+}
