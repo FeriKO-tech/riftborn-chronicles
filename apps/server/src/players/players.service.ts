@@ -61,6 +61,25 @@ export class PlayersService {
     return this.toPlayerStateDto(player as PlayerWithRelations);
   }
 
+  async getRecentBattles(playerId: string, limit = 20) {
+    return this.prisma.battleLog.findMany({
+      where: { playerId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        zone: true,
+        room: true,
+        victory: true,
+        rounds: true,
+        goldEarned: true,
+        expEarned: true,
+        leveledUp: true,
+        createdAt: true,
+      },
+    });
+  }
+
   async updateLastHeartbeat(playerId: string): Promise<void> {
     await this.prisma.player.update({
       where: { id: playerId },
@@ -69,6 +88,9 @@ export class PlayersService {
   }
 
   toProfileDto(player: Player): PlayerProfileDto {
+    const expToNextLevel = Math.floor(
+      player.level * 100 * Math.pow(1.15, player.level - 1),
+    );
     return {
       id: player.id,
       name: player.name,
@@ -76,6 +98,8 @@ export class PlayersService {
       class: player.class as unknown as PlayerClass,
       powerScore: Number(player.powerScore),
       vipLevel: player.vipLevel,
+      experience: Number(player.experience),
+      expToNextLevel,
     };
   }
 

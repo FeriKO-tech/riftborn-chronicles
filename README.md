@@ -2,69 +2,37 @@
 
 > *Shatter the Void. Claim Eternity.*
 
-Browser-based anime-fantasy idle/MMORPG. Server-authoritative progression, PixiJS rendering, NestJS backend.
-
----
-
-## Prerequisites
-
-| Tool | Version |
-|---|---|
-| Node.js | ≥ 20.0.0 |
-| pnpm | ≥ 9.0.0 |
-| Docker + Docker Compose | latest |
-
-Install pnpm if needed: `npm install -g pnpm`
+Browser-based anime-fantasy idle/MMORPG built on a fully server-authoritative foundation. pnpm monorepo · NestJS + Prisma · Vite + React + PixiJS · PostgreSQL + Redis.
 
 ---
 
 ## Quick Start
 
-### 1. Clone and install dependencies
-
 ```bash
+# 1. Install (requires Node ≥ 20, pnpm ≥ 9, Docker Desktop)
 pnpm install
+
+# 2. Environment variables
+cp .env.example .env        # defaults work for local Docker
+
+# 3. Start infrastructure
+pnpm infra:up               # PostgreSQL + Redis containers
+
+# 4. Database (first time only)
+pnpm db:migrate             # apply Prisma schema
+pnpm db:seed                # create dev account
+
+# 5. Run
+pnpm dev                    # server :3001 + client :5173
 ```
 
-### 2. Set up environment variables
+**Dev credentials (after seed):** `dev@riftborn.dev` / `DevPass123!`
+
+### Verify
 
 ```bash
-cp .env.example .env
-# Edit .env — the defaults work for local Docker setup
-```
-
-### 3. Start infrastructure (PostgreSQL + Redis)
-
-```bash
-pnpm infra:up
-# Verify containers are healthy:
-docker ps
-```
-
-### 4. Run database migrations (Batch B — after schema is added)
-
-```bash
-pnpm db:migrate
-pnpm db:seed
-```
-
-### 5. Start development servers
-
-```bash
-# Start both backend + frontend in parallel
-pnpm dev
-
-# Or start separately:
-pnpm dev:server   # http://localhost:3001/api/v1
-pnpm dev:client   # http://localhost:5173
-```
-
-### 6. Verify
-
-```bash
-# Health check
 curl http://localhost:3001/api/v1/health
-# Expected: { "status": "ok", "timestamp": "...", "services": {...} }
+# → { "success": true, "data": { "status": "ok", "services": { "database": "ok", "redis": "ok" } } }
 ```
 
 ---
@@ -74,17 +42,57 @@ curl http://localhost:3001/api/v1/health
 ```
 riftborn-chronicles/
 ├── apps/
-│   ├── client/          # Vite + React + TypeScript + PixiJS
-│   └── server/          # NestJS + Prisma
+│   ├── client/              Vite + React + PixiJS frontend
+│   │   └── src/
+│   │       ├── api/         Axios API clients
+│   │       ├── components/  RequireAuth, LoadingScreen, OfflineRewardsModal
+│   │       ├── pages/       LoginPage, RegisterPage, GamePage
+│   │       ├── store/       Zustand: auth.store, player.store
+│   │       └── game/        PixiJS hook
+│   └── server/              NestJS backend
+│       ├── prisma/          Schema, migrations, seed
+│       └── src/
+│           ├── auth/        JWT register/login/refresh/logout
+│           ├── accounts/    Account CRUD + password hashing
+│           ├── players/     Player state, offline rewards, heartbeat
+│           ├── stages/      Zone catalogue + room progression
+│           ├── config/      AppConfigService
+│           ├── database/    PrismaService
+│           ├── redis/       RedisService (ioredis)
+│           ├── health/      Health endpoint
+│           └── common/      Guards, decorators, interceptors, filters
 ├── packages/
-│   └── shared/          # Shared TypeScript types & DTOs
+│   └── shared/              TypeScript types & DTOs (built to dist/)
 ├── infra/
-│   └── docker-compose.yml
-├── docs/
-│   └── architecture.md
-├── .env.example
-└── pnpm-workspace.yaml
+│   └── docker-compose.yml   PostgreSQL + Redis
+└── .github/workflows/ci.yml  TypeScript + test CI
 ```
+
+---
+
+## API Routes
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/health` | Public | DB + Redis liveness |
+| `POST` | `/api/v1/auth/register` | Public | Create account + player |
+| `POST` | `/api/v1/auth/login` | Public | Login, set refresh cookie |
+| `POST` | `/api/v1/auth/refresh` | Cookie | Rotate refresh token |
+| `POST` | `/api/v1/auth/logout` | JWT | Revoke session |
+| `GET` | `/api/v1/auth/me` | JWT | Full player state |
+| `GET` | `/api/v1/players/me` | JWT | Player state |
+| `GET` | `/api/v1/players/me/offline-rewards` | JWT | Preview idle gold |
+| `POST` | `/api/v1/players/me/offline-rewards/claim` | JWT | Claim + persist |
+| `POST` | `/api/v1/players/me/heartbeat` | JWT | Update last-seen |
+| `GET` | `/api/v1/players/me/battles` | JWT | Last 20 battle logs |
+| `GET` | `/api/v1/players/me/stats` | JWT | Current combat stats |
+| `GET` | `/api/v1/stages/zones` | Public | List all 100 zones |
+| `GET` | `/api/v1/stages/zones/:zone` | Public | Zone + room details |
+| `GET` | `/api/v1/stages/me/progress` | JWT | Player stage progress |
+| `POST` | `/api/v1/stages/me/advance` | JWT | Simulate battle, earn rewards + drop |
+| `GET` | `/api/v1/inventory` | JWT | List inventory items |
+| `POST` | `/api/v1/inventory/equip/:itemId` | JWT | Equip item |
+| `DELETE` | `/api/v1/inventory/equip/:itemId` | JWT | Unequip item |
 
 ---
 
@@ -93,48 +101,40 @@ riftborn-chronicles/
 | Command | Description |
 |---|---|
 | `pnpm dev` | Start server + client in parallel |
-| `pnpm dev:server` | Start NestJS server only |
-| `pnpm dev:client` | Start Vite client only |
+| `pnpm dev:server` | Build shared then start NestJS watch |
+| `pnpm dev:client` | Start Vite dev server |
 | `pnpm build` | Build all packages |
-| `pnpm typecheck` | TypeScript check all packages |
+| `pnpm build:shared` | Build `@riftborn/shared` to `dist/` |
+| `pnpm typecheck` | `tsc --noEmit` across all packages |
+| `pnpm test` | Run server unit tests (Jest) |
+| `pnpm test:ci` | Run with coverage report |
 | `pnpm infra:up` | Start Docker services |
 | `pnpm infra:down` | Stop Docker services |
 | `pnpm infra:logs` | Tail Docker service logs |
 | `pnpm db:migrate` | Run Prisma migrations |
-| `pnpm db:seed` | Seed development data |
+| `pnpm db:seed` | Seed dev account (resets DB) |
 | `pnpm db:studio` | Open Prisma Studio |
 
 ---
 
-## Development Ports
+## Tech Stack
 
-| Service | URL |
+| Layer | Technology |
 |---|---|
-| Frontend | http://localhost:5173 |
-| Backend API | http://localhost:3001/api/v1 |
-| Health Check | http://localhost:3001/api/v1/health |
-| PostgreSQL | localhost:5432 |
-| Redis | localhost:6379 |
-| Prisma Studio | http://localhost:5555 |
-
----
-
-## Implementation Batches
-
-| Batch | Status | Contents |
-|---|---|---|
-| **A** | ✅ Complete | Monorepo, shared types, NestJS health endpoint, Vite+React+PixiJS shell |
-| **B** | 🔜 Next | ConfigModule, PrismaModule, RedisModule, AuthModule (register/login/JWT) |
-| **C** | ⏳ Pending | Full Prisma schema, migrations, seed |
-| **D** | ⏳ Pending | Frontend auth flow, Zustand store, API client with token refresh |
-| **E** | ⏳ Pending | Player state load, offline rewards, progression save/load |
-| **F** | ⏳ Pending | Tests, CI/CD, observability |
+| **Backend** | NestJS 10, Prisma 5, PostgreSQL 16, Redis 7, ioredis |
+| **Auth** | JWT (access 15m + refresh 7d httpOnly cookie), bcrypt |
+| **Frontend** | Vite 5, React 18, PixiJS 8, Zustand, Axios |
+| **Types** | TypeScript strict, shared DTOs across client + server |
+| **Testing** | Jest, `@nestjs/testing`, ts-jest — 31 unit tests |
+| **CI** | GitHub Actions — typecheck + test on PR |
+| **Infra** | Docker Compose, pnpm workspaces |
 
 ---
 
 ## Architecture Principles
 
-1. **Server-authoritative**: All progression, economy, and reward calculations happen server-side
-2. **Modular monolith first**: Clear module boundaries, no premature microservices
-3. **Config-driven balance**: All game numbers in DB config — changeable without deploy
-4. **Audit trail**: All economy transactions logged
+1. **Server-authoritative** — all progression math and economy happens server-side
+2. **Modular monolith** — clear module boundaries; no premature microservices
+3. **Offline rewards capped at 8h** — `floor(500 × level^1.4 × hours)` gold
+4. **Refresh token rotation** — old token revoked on every refresh, hash stored in DB
+5. **Global guard + `@Public()`** — every route is JWT-protected by default; opt-out with decorator

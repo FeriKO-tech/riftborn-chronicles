@@ -11,6 +11,8 @@ export interface PlayerProfileDto {
   class: PlayerClass;
   powerScore: number;
   vipLevel: number;
+  experience: number;
+  expToNextLevel: number;
 }
 
 export interface PlayerCurrenciesDto {

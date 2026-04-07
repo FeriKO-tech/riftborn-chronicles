@@ -6,12 +6,10 @@ import {
   HttpStatus,
   Post,
   Res,
-  UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentPlayer } from '../common/decorators/current-player.decorator';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PlayersService } from '../players/players.service';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -87,7 +85,6 @@ export class AuthController {
     res.clearCookie(REFRESH_COOKIE, { path: '/api/v1/auth' });
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('me')
   async getMe(@CurrentPlayer() payload: TokenPayload) {
     return this.playersService.loadPlayerState(payload.sub);

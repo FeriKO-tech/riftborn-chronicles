@@ -1,6 +1,10 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/auth.store';
+import { QueryProvider } from './providers/QueryProvider';
+import { SocketProvider } from './providers/SocketProvider';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import Notifications from './components/Notifications';
 import RequireAuth from './components/RequireAuth';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -14,6 +18,10 @@ export default function App() {
   }, [tryRestoreSession]);
 
   return (
+    <ErrorBoundary>
+    <QueryProvider>
+    <SocketProvider>
+    <Notifications />
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -29,5 +37,8 @@ export default function App() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
+    </SocketProvider>
+    </QueryProvider>
+    </ErrorBoundary>
   );
 }

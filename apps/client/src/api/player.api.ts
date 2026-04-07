@@ -2,6 +2,7 @@ import { apiClient } from './client';
 import type {
   ApiSuccess,
   ClaimOfflineRewardResponseDto,
+  CombatStatsDto,
   HeartbeatResponseDto,
   OfflineRewardPreviewDto,
   PlayerStateDto,
@@ -24,6 +25,11 @@ export const playerApi = {
     const { data } = await apiClient.post<ApiSuccess<ClaimOfflineRewardResponseDto>>(
       '/players/me/offline-rewards/claim',
     );
+    return data.data;
+  },
+
+  getMyStats: async (): Promise<CombatStatsDto> => {
+    const { data } = await apiClient.get<ApiSuccess<CombatStatsDto>>('/players/me/stats');
     return data.data;
   },
 

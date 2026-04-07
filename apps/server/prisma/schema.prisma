@@ -62,6 +62,16 @@ model Player {
   currencies        PlayerCurrencies?
   stageProgress     StageProgress?
   offlineRewardLogs OfflineRewardLog[]
+  battleLogs        BattleLog[]
+  inventory         InventoryItem[]
+  dailyReward       DailyReward?
+  quests            PlayerQuest[]
+  companions        PlayerCompanion[]
+  bossAttempts      BossAttempt[]
+  pvpProfile        PvpProfile?
+  pvpAttacks        PvpBattle[]        @relation("Attacker")
+  pvpDefenses       PvpBattle[]        @relation("Defender")
+  activeCompanionId String?            @map("active_companion_id")
 
   @@index([name])
   @@map("players")
@@ -109,4 +119,136 @@ model OfflineRewardLog {
 
   @@index([playerId, claimedAt(sort: Desc)])
   @@map("offline_reward_logs")
+}
+
+model BattleLog {
+  id          String   @id @default(uuid())
+  playerId    String   @map("player_id")
+  zone        Int
+  room        Int
+  victory     Boolean
+  rounds      Int
+  goldEarned  Int      @map("gold_earned")
+  expEarned   Int      @map("exp_earned")
+  leveledUp   Boolean  @default(false) @map("leveled_up")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId, createdAt(sort: Desc)])
+  @@map("battle_logs")
+}
+
+model InventoryItem {
+  id         String   @id @default(uuid())
+  playerId   String   @map("player_id")
+  templateId String   @map("template_id")
+  name       String
+  slot       String
+  rarity     String
+  itemLevel  Int      @default(1) @map("item_level")
+  isEquipped Boolean  @default(false) @map("is_equipped")
+  atkBonus   Int      @default(0) @map("atk_bonus")
+  defBonus   Int      @default(0) @map("def_bonus")
+  hpBonus           Int      @default(0) @map("hp_bonus")
+  enhancementLevel  Int      @default(0) @map("enhancement_level")
+  obtainedAt        DateTime @default(now()) @map("obtained_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+  @@index([playerId, isEquipped])
+  @@map("inventory_items")
+}
+
+model DailyReward {
+  id            String    @id @default(uuid())
+  playerId      String    @unique @map("player_id")
+  streak        Int       @default(0)
+  longestStreak Int       @default(0) @map("longest_streak")
+  lastClaimedAt DateTime? @map("last_claimed_at")
+  totalClaimed  Int       @default(0) @map("total_claimed")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("daily_rewards")
+}
+
+model PlayerQuest {
+  id          String   @id @default(uuid())
+  playerId    String   @map("player_id")
+  templateId  String   @map("template_id")
+  progress    Int      @default(0)
+  targetValue Int      @map("target_value")
+  claimed     Boolean  @default(false)
+  periodKey   String   @map("period_key")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, templateId, periodKey])
+  @@index([playerId, periodKey])
+  @@map("player_quests")
+}
+
+model PlayerCompanion {
+  id         String   @id @default(uuid())
+  playerId   String   @map("player_id")
+  templateId String   @map("template_id")
+  obtainedAt DateTime @default(now()) @map("obtained_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, templateId])
+  @@index([playerId])
+  @@map("player_companions")
+}
+
+model BossAttempt {
+  id              String    @id @default(uuid())
+  playerId        String    @map("player_id")
+  bossId          String    @map("boss_id")
+  attemptsUsed    Int       @default(0) @map("attempts_used")
+  lastAttemptAt   DateTime? @map("last_attempt_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, bossId])
+  @@index([playerId])
+  @@map("boss_attempts")
+}
+
+model PvpProfile {
+  id               String   @id @default(uuid())
+  playerId         String   @unique @map("player_id")
+  rating           Int      @default(1200)
+  wins             Int      @default(0)
+  losses           Int      @default(0)
+  defenseSnapshot  Json     @map("defense_snapshot")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([rating(sort: Desc)])
+  @@map("pvp_profiles")
+}
+
+model PvpBattle {
+  id           String   @id @default(uuid())
+  attackerId   String   @map("attacker_id")
+  defenderId   String   @map("defender_id")
+  result       String
+  ratingChange Int      @map("rating_change")
+  rewardGold   Int      @default(0) @map("reward_gold")
+  rounds       Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  attacker Player @relation("Attacker", fields: [attackerId], references: [id], onDelete: Cascade)
+  defender Player @relation("Defender", fields: [defenderId], references: [id], onDelete: Cascade)
+
+  @@index([attackerId, createdAt(sort: Desc)])
+  @@index([defenderId])
+  @@map("pvp_battles")
 }

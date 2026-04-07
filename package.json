@@ -6,6 +6,8 @@
     "dev": "concurrently \"pnpm dev:server\" \"pnpm dev:client\" --names \"server,client\" --prefix-colors \"cyan,magenta\"",
     "dev:server": "pnpm --filter @riftborn/shared run build && pnpm --filter @riftborn/server run dev",
     "build:shared": "pnpm --filter @riftborn/shared run build",
+    "test": "pnpm --filter @riftborn/server run test",
+    "test:ci": "pnpm --filter @riftborn/server run test:cov",
     "dev:client": "pnpm --filter @riftborn/client run dev",
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",

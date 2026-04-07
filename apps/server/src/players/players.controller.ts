@@ -1,8 +1,10 @@
 import { Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { CurrentPlayer } from '../common/decorators/current-player.decorator';
+import { CombatService } from '../combat/combat.service';
 import { PlayersService } from './players.service';
 import type {
   ClaimOfflineRewardResponseDto,
+  CombatStatsDto,
   HeartbeatResponseDto,
   OfflineRewardPreviewDto,
   PlayerStateDto,
@@ -11,7 +13,10 @@ import type {
 
 @Controller('players')
 export class PlayersController {
-  constructor(private readonly playersService: PlayersService) {}
+  constructor(
+    private readonly playersService: PlayersService,
+    private readonly combatService: CombatService,
+  ) {}
 
   @Get('me')
   async getMyState(@CurrentPlayer() payload: TokenPayload): Promise<PlayerStateDto> {
@@ -41,6 +46,20 @@ export class PlayersController {
   ): Promise<ClaimOfflineRewardResponseDto> {
     const player = await this.playersService.findByAccountId(payload.sub);
     return this.playersService.claimOfflineReward(player.id);
+  }
+
+  @Get('me/battles')
+  async getMyBattles(
+    @CurrentPlayer() payload: TokenPayload,
+  ): Promise<object[]> {
+    const player = await this.playersService.findByAccountId(payload.sub);
+    return this.playersService.getRecentBattles(player.id);
+  }
+
+  @Get('me/stats')
+  async getMyStats(@CurrentPlayer() payload: TokenPayload): Promise<CombatStatsDto> {
+    const player = await this.playersService.findByAccountId(payload.sub);
+    return this.combatService.computePlayerStats(player.level, player.class);
   }
 
   // ── Heartbeat (keeps lastHeartbeat fresh for idle calc accuracy) ──────────
