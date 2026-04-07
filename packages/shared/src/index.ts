@@ -67,6 +67,17 @@ export type {
   StageProgressResponseDto,
   AdvanceRoomResponseDto,
 } from './types/stage.types';
+export type { EnemyArchetype, SpawnLane } from './types/combat-scene.types';
+export type {
+  EnemyTypeDto,
+  SpawnPointDto,
+  ZoneDefinitionDto,
+  ZoneCombatStateDto,
+  ZoneSceneConfigDto,
+  KillEnemyRequestDto,
+  KillEnemyResponseDto,
+  ZoneClearResponseDto,
+} from './types/combat-scene.types';
 export type { ShopCurrency, ShopSection, RewardKind } from './types/shop.types';
 export type {
   ShopRewardDto,

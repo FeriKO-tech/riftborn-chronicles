@@ -73,6 +73,7 @@ model Player {
   pvpDefenses       PvpBattle[]        @relation("Defender")
   activeCompanionId String?            @map("active_companion_id")
   shopPurchases     PlayerShopPurchase[]
+  zoneKillProgress  ZoneKillProgress[]
 
   @@index([name])
   @@map("players")
@@ -268,4 +269,19 @@ model PlayerShopPurchase {
   @@unique([playerId, offerId, periodKey])
   @@index([playerId, periodKey])
   @@map("player_shop_purchases")
+}
+
+model ZoneKillProgress {
+  id        String   @id @default(uuid())
+  playerId  String   @map("player_id")
+  zone      Int
+  kills     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, zone])
+  @@index([playerId])
+  @@map("zone_kill_progress")
 }
