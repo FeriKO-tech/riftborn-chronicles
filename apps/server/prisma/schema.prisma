@@ -72,6 +72,7 @@ model Player {
   pvpAttacks        PvpBattle[]        @relation("Attacker")
   pvpDefenses       PvpBattle[]        @relation("Defender")
   activeCompanionId String?            @map("active_companion_id")
+  shopPurchases     PlayerShopPurchase[]
 
   @@index([name])
   @@map("players")
@@ -251,4 +252,20 @@ model PvpBattle {
   @@index([attackerId, createdAt(sort: Desc)])
   @@index([defenderId])
   @@map("pvp_battles")
+}
+
+model PlayerShopPurchase {
+  id        String   @id @default(uuid())
+  playerId  String   @map("player_id")
+  offerId   String   @map("offer_id")
+  periodKey String   @map("period_key")
+  count     Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, offerId, periodKey])
+  @@index([playerId, periodKey])
+  @@map("player_shop_purchases")
 }

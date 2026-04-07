@@ -13,6 +13,7 @@ import { EnhancementModule } from './enhancement/enhancement.module';
 import { CompanionsModule } from './companions/companions.module';
 import { BossModule } from './boss/boss.module';
 import { PvpModule } from './pvp/pvp.module';
+import { ShopModule } from './shop/shop.module';
 import { StagesModule } from './stages/stages.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -33,6 +34,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     CompanionsModule,
     BossModule,
     PvpModule,
+    ShopModule,
     DailyRewardModule,
     QuestModule,
   ],

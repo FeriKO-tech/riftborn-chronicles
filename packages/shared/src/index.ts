@@ -67,6 +67,17 @@ export type {
   StageProgressResponseDto,
   AdvanceRoomResponseDto,
 } from './types/stage.types';
+export type { ShopCurrency, ShopSection, RewardKind } from './types/shop.types';
+export type {
+  ShopRewardDto,
+  ShopOfferDto,
+  ShopCatalogDto,
+  OfferStateDto,
+  ShopStateDto,
+  ShopPurchaseRequestDto,
+  ShopPurchaseResponseDto,
+  ShopFreePackResponseDto,
+} from './types/shop.types';
 export type {
   PlayerProfileDto,
   PlayerCurrenciesDto,

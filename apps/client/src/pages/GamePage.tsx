@@ -20,6 +20,7 @@ import StagesPanel from '../components/StagesPanel';
 import CompanionsPanel from '../components/CompanionsPanel';
 import BossPanel from '../components/BossPanel';
 import PvpPanel from '../components/PvpPanel';
+import ShopPanel from '../components/ShopPanel';
 
 // ── Pure style helpers ─────────────────────────────────────────────────────────
 
@@ -206,6 +207,7 @@ export default function GamePage() {
   const [showPvp, setShowPvp] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
   const [showStages, setShowStages] = useState(false);
+  const [showShop, setShowShop] = useState(false);
   const [showOfflineReward, setShowOfflineReward] = useState(false);
   const [dailyStatus, setDailyStatus] = useState<DailyRewardStatusDto | null>(null);
   const [showDailyReward, setShowDailyReward] = useState(false);
@@ -307,6 +309,7 @@ export default function GamePage() {
     if (id === 'pvp') setShowPvp(true);
     if (id === 'quests') setShowQuests(true);
     if (id === 'stages') setShowStages(true);
+    if (id === 'shop') setShowShop(true);
   };
 
   return (
@@ -375,6 +378,7 @@ export default function GamePage() {
       {showPvp && <PvpPanel onClose={() => { setShowPvp(false); setActiveTab('battle'); }} />}
       {showQuests && <QuestsPanel onClose={() => { setShowQuests(false); setActiveTab('battle'); }} />}
       {showStages && <StagesPanel onClose={() => { setShowStages(false); setActiveTab('battle'); }} />}
+      {showShop && <ShopPanel onClose={() => { setShowShop(false); setActiveTab('battle'); }} />}
     </>
   );
 }

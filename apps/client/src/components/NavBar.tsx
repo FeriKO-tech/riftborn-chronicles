@@ -12,9 +12,10 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { icon: '⚔️', label: 'Battle', id: 'battle' },
   { icon: '👤', label: 'Hero', id: 'hero' },
+  { icon: '🏪', label: 'Shop', id: 'shop' },
   { icon: '☠️', label: 'Boss', id: 'boss' },
   { icon: '🏆', label: 'PvP', id: 'pvp' },
-  { icon: '�', label: 'Quests', id: 'quests' },
+  { icon: '📋', label: 'Quests', id: 'quests' },
   { icon: '⚙️', label: 'Menu', id: 'menu' },
 ];
 
