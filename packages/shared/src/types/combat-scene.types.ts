@@ -41,6 +41,9 @@ export interface ZoneDefinitionDto {
   spawnIntervalMs: number;
   enemyTypes: EnemyTypeDto[];
   bossId: string;
+  bossName: string;
+  bossIcon: string;
+  bossMaxHp: number;
   spawnPoints: SpawnPointDto[];
 }
 
