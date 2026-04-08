@@ -6,6 +6,8 @@ import { EnemyActor } from '../actors/EnemyActor';
 import { BossActor } from '../actors/BossActor';
 import { SpawnSystem } from '../systems/SpawnSystem';
 import { MovementSystem } from '../systems/MovementSystem';
+import { ParticleSystem } from '../effects/ParticleSystem';
+import { FloatingTextSystem } from '../effects/FloatingTextSystem';
 
 // Reference field dimensions
 const REF_W = 800;
@@ -40,6 +42,14 @@ export class CombatScene {
   private bossMode = false;
   private bossDefeated = false;
 
+  // FX systems
+  private readonly fx: ParticleSystem;
+  private readonly floatText: FloatingTextSystem;
+
+  // Screen shake
+  private shakeTimer = 0;
+  private shakeIntensity = 0;
+
   // Zone-clear flash overlay
   private readonly clearOverlay: Graphics;
   private clearFlashTimer = 0;
@@ -66,9 +76,18 @@ export class CombatScene {
     this.root.addChild(this.heroLayer);
     this.root.addChild(this.fxLayer);
 
+    // Particle + float-text containers sit below the clear overlay
+    const particleLayer  = new Container();
+    const floatLayer     = new Container();
+    this.fxLayer.addChild(particleLayer);
+    this.fxLayer.addChild(floatLayer);
+
     this.clearOverlay = new Graphics();
     this.clearOverlay.alpha = 0;
     this.fxLayer.addChild(this.clearOverlay);
+
+    this.fx        = new ParticleSystem(particleLayer);
+    this.floatText = new FloatingTextSystem(floatLayer);
 
     app.stage.addChild(this.root);
 
@@ -88,6 +107,14 @@ export class CombatScene {
     if (this.boss) { this.enemyLayer.removeChild(this.boss); this.boss = null; }
     for (const [, e] of this.enemies) this.enemyLayer.removeChild(e);
     this.enemies.clear();
+    this.fx.destroy();
+    this.floatText.destroy();
+    this.hero.refX = HERO_REF_X;
+    this.hero.refY = HERO_REF_Y;
+    this.hero.setState('idle');
+    this.attackCooldown = 0;
+    this.shakeTimer = 0;
+    this.root.x = 0; this.root.y = 0;
     this.spawn.reset();
     this._drawBackground();
   }
@@ -161,6 +188,8 @@ export class CombatScene {
         this.enemies.set(enemy.id, enemy);
         this.enemyLayer.addChild(enemy);
         this._syncActorPosition(enemy);
+        // Spawn glint (position already synced)
+        this.fx.emitSpawnGlint(enemy.x, enemy.y, enemy.accent);
       }
     }
 
@@ -196,6 +225,12 @@ export class CombatScene {
             this.hero.setState('attack');
             this.attackCooldown = ATTACK_COOLDOWN_MS;
             target.triggerDeath();
+            // FX on kill
+            this.fx.emitKillSparks(target.x, target.y, target.accent);
+            this.fx.emitDeathBurst(target.x, target.y, target.color);
+            this.fx.emitHeroAttackTrail(this.hero.x, this.hero.y, 0x7c3aed);
+            this.floatText.emitGold(target.x, target.y, target.goldReward);
+            this.floatText.emitExp(target.x, target.y - 18, target.expReward);
             this.callbacks.onEnemyKilled(target.typeId);
           }
         } else {
@@ -211,6 +246,20 @@ export class CombatScene {
 
     // Update hero
     this.hero.update(deltaMS);
+
+    // Update FX
+    this.fx.update(deltaMS);
+    this.floatText.update(deltaMS);
+
+    // Screen shake
+    if (this.shakeTimer > 0) {
+      this.shakeTimer -= deltaMS / 1000;
+      const mag = this.shakeIntensity * Math.max(0, this.shakeTimer / 0.35);
+      this.root.x = (Math.random() - 0.5) * mag * 2;
+      this.root.y = (Math.random() - 0.5) * mag * 2;
+    } else {
+      this.root.x = 0; this.root.y = 0;
+    }
 
     // Update enemies
     const toRemove: string[] = [];
@@ -230,6 +279,9 @@ export class CombatScene {
       this.boss.update(deltaMS);
       this._syncActorPosition(this.boss);
       if (this.boss.isDead()) {
+        this.fx.emitBossExplosion(this.boss.x, this.boss.y);
+        this.shakeTimer = 0.35; this.shakeIntensity = 14;
+        this.clearFlashTimer = 1.5;
         this.enemyLayer.removeChild(this.boss);
         this.boss = null;
       }
@@ -373,6 +425,8 @@ export class CombatScene {
   }
 
   destroy(): void {
+    this.fx.destroy();
+    this.floatText.destroy();
     this.app.stage.removeChild(this.root);
   }
 }

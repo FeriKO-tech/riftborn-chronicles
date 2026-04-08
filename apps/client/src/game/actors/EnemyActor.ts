@@ -10,6 +10,8 @@ export class EnemyActor extends Container {
   readonly typeId: string;
   readonly archetype: string;
   readonly maxHp: number;
+  readonly goldReward: number;
+  readonly expReward: number;
   hp: number;
 
   // Reference-field position (set by CombatScene each tick)
@@ -23,8 +25,8 @@ export class EnemyActor extends Container {
 
   private readonly body: Graphics;
   private readonly hpBar: Graphics;
-  protected readonly color: number;
-  protected readonly accent: number;
+  readonly color: number;
+  readonly accent: number;
   protected readonly size: number;
 
   constructor(type: EnemyTypeDto, spawnRefX: number, spawnRefY: number) {
@@ -36,8 +38,10 @@ export class EnemyActor extends Container {
     this.hp      = type.baseHp;
     this.refX    = spawnRefX;
     this.refY    = spawnRefY;
-    this.color   = parseInt(type.color.replace('#', ''), 16);
-    this.accent  = parseInt(type.accentColor.replace('#', ''), 16);
+    this.color      = parseInt(type.color.replace('#', ''), 16);
+    this.accent     = parseInt(type.accentColor.replace('#', ''), 16);
+    this.goldReward = type.goldReward;
+    this.expReward  = type.expReward;
     this.size    = type.size;
 
     this.alpha   = 0;
@@ -60,10 +64,11 @@ export class EnemyActor extends Container {
     const s = this.size;
 
     switch (this.archetype) {
-      case 'beast':   this._drawBeast(g, c, a, s);  break;
-      case 'scout':   this._drawScout(g, c, a, s);  break;
-      case 'brute':   this._drawBrute(g, c, a, s);  break;
-      default:        this._drawScout(g, c, a, s);  break;
+      case 'beast':   this._drawBeast(g, c, a, s); break;
+      case 'scout':   this._drawScout(g, c, a, s); break;
+      case 'brute':   this._drawBrute(g, c, a, s); break;
+      case 'boss':    this._drawBoss(g, c, a, s);  break;
+      default:        this._drawScout(g, c, a, s); break;
     }
   }
 
@@ -108,6 +113,35 @@ export class EnemyActor extends Container {
     g.roundRect(s * 0.52, -s * 0.7, s * 0.14, s * 0.3, 2);  g.fill({ color: 0xe2e8f0 });
     // Body outline glow
     g.roundRect(-s * 0.3, -s * 0.72, s * 0.6, s * 1.44, 6); g.stroke({ width: 1.5, color: a, alpha: 0.12 });
+  }
+
+  protected _drawBoss(g: Graphics, c: number, a: number, s: number): void {
+    // Shadow
+    g.ellipse(0, s * 0.72, s * 0.85, s * 0.2); g.fill({ color: 0x000000, alpha: 0.55 });
+    // Void cloak (wide trapezoidal)
+    g.poly([-(s * 0.65), -(s * 0.8), s * 0.65, -(s * 0.8), s * 0.88, s * 0.72, -(s * 0.88), s * 0.72]);
+    g.fill({ color: c });
+    g.poly([-(s * 0.65), -(s * 0.8), s * 0.65, -(s * 0.8), s * 0.88, s * 0.72, -(s * 0.88), s * 0.72]);
+    g.stroke({ width: 1.5, color: a, alpha: 0.4 });
+    // Shoulders
+    g.roundRect(-(s * 0.8), -(s * 0.68), s * 0.42, s * 0.3, 5); g.fill({ color: c });
+    g.roundRect(-(s * 0.8), -(s * 0.68), s * 0.42, s * 0.3, 5); g.stroke({ width: 1.5, color: a, alpha: 0.65 });
+    g.roundRect(s * 0.38, -(s * 0.68), s * 0.42, s * 0.3, 5);   g.fill({ color: c });
+    g.roundRect(s * 0.38, -(s * 0.68), s * 0.42, s * 0.3, 5);   g.stroke({ width: 1.5, color: a, alpha: 0.65 });
+    // Energy core
+    g.circle(0, -(s * 0.06), s * 0.22); g.fill({ color: a, alpha: 0.75 });
+    g.circle(0, -(s * 0.06), s * 0.13); g.fill({ color: 0xffffff, alpha: 0.9 });
+    g.circle(0, -(s * 0.06), s * 0.28); g.fill({ color: a, alpha: 0.12 });
+    // Void cracks
+    g.moveTo(-(s * 0.18), -(s * 0.52)).lineTo(0, -(s * 0.18)).lineTo(s * 0.14, -(s * 0.38));
+    g.stroke({ width: 1.5, color: a, alpha: 0.85 });
+    // Eyes
+    g.circle(-(s * 0.22), -(s * 0.5), s * 0.11); g.fill({ color: a });
+    g.circle(s * 0.22,    -(s * 0.5), s * 0.11); g.fill({ color: a });
+    g.circle(-(s * 0.22), -(s * 0.5), s * 0.05); g.fill({ color: 0xffffff });
+    g.circle(s * 0.22,    -(s * 0.5), s * 0.05); g.fill({ color: 0xffffff });
+    g.circle(-(s * 0.22), -(s * 0.5), s * 0.16); g.fill({ color: a, alpha: 0.14 });
+    g.circle(s * 0.22,    -(s * 0.5), s * 0.16); g.fill({ color: a, alpha: 0.14 });
   }
 
   protected _drawBrute(g: Graphics, c: number, a: number, s: number): void {
