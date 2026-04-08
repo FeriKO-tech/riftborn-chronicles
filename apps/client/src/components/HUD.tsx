@@ -109,9 +109,6 @@ export default function HUD({ profile, currencies, currentZone, currentRoom, que
         <span style={{ fontSize: '12px', color: '#60a5fa', fontWeight: 600 }}>
           💎 {currencies?.voidCrystals ?? '—'}
         </span>
-        <span style={{ fontSize: '12px', color: '#a78bfa', fontWeight: 600 }}>
-          ⚡ {currencies?.resonanceCores ?? '—'}
-        </span>
       </div>
     </div>
   );

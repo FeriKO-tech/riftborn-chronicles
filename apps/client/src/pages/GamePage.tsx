@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/auth.store';
 import { usePlayerStore } from '../store/player.store';
 import { dailyRewardApi } from '../api/daily-reward.api';
 import { usePlayerState, useOfflineRewardPreview, useClaimOfflineReward } from '../hooks/usePlayerQuery';
-import { useStageProgress, useAdvanceRoom } from '../hooks/useStageQuery';
+import { useStageProgress } from '../hooks/useStageQuery';
 import type { DailyRewardStatusDto } from '@riftborn/shared';
 import { useSocketEvent } from '../providers/SocketProvider';
 import { notify } from '../store/notification.store';
@@ -44,26 +44,6 @@ const sectionLabel: React.CSSProperties = {
   marginBottom: '8px',
 };
 
-const battleBtn = (busy: boolean, type: 'primary' | 'auto' | 'speed', active?: boolean): React.CSSProperties => {
-  if (type === 'primary') return {
-    width: '100%', padding: '12px', borderRadius: '10px', border: 'none',
-    fontSize: '14px', fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer',
-    background: busy ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#7c3aed,#a855f7)',
-    color: busy ? '#6b7280' : '#fff',
-  };
-  if (type === 'auto') return {
-    flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontSize: '12px',
-    fontWeight: 700, cursor: 'pointer',
-    background: active ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.07)',
-    color: active ? '#f59e0b' : '#9ca3af',
-  };
-  return {
-    padding: '8px 10px', borderRadius: '8px', border: 'none', fontSize: '10px',
-    fontWeight: 600, cursor: 'pointer',
-    background: active ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.06)',
-    color: active ? '#e8e0ff' : '#6b7280',
-  };
-};
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -111,69 +91,52 @@ function LeftPanel({ zone, roomNum, zoneName, highestZone }: {
 }
 
 function RightPanel({
-  isPending,
-  lastBattleLog,
-  autoBattle,
-  battleSpeed,
-  onBattle,
-  onToggleAuto,
-  onSpeed,
+  autoBoss,
+  onToggleAutoBoss,
+  kills,
+  requiredKills,
+  zoneName,
 }: {
-  isPending: boolean;
-  lastBattleLog: Array<{ id: number; victory: boolean; gold: number; zone: number; room: number; leveledUp: boolean; drop: boolean }>;
-  autoBattle: boolean;
-  battleSpeed: number;
-  onBattle: () => void;
-  onToggleAuto: () => void;
-  onSpeed: (ms: number) => void;
+  autoBoss: boolean;
+  onToggleAutoBoss: () => void;
+  kills: number;
+  requiredKills: number;
+  zoneName: string;
 }) {
-  const roomType =
-    lastBattleLog[0]?.room === 10 ? '👑 Boss Room'
-    : lastBattleLog[0]?.room === 5 ? '⭐ Elite'
-    : '⚔️ Battle';
-
   return (
-    <div style={{ ...panelPad, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-      <p style={sectionLabel}>Combat</p>
+    <div style={{ ...panelPad, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <p style={sectionLabel}>Auto-Combat</p>
 
-      <button style={battleBtn(isPending, 'primary')} onClick={onBattle} disabled={isPending}>
-        {isPending ? 'Fighting…' : roomType}
+      <button
+        onClick={onToggleAutoBoss}
+        style={{
+          width: '100%', padding: '12px', borderRadius: '10px', border: 'none',
+          fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+          background: autoBoss
+            ? 'linear-gradient(135deg,rgba(245,158,11,0.3),rgba(239,68,68,0.2))'
+            : 'rgba(255,255,255,0.06)',
+          color: autoBoss ? '#fbbf24' : '#9ca3af',
+          boxShadow: autoBoss ? '0 0 16px rgba(245,158,11,0.25)' : 'none',
+          transition: 'all 0.2s',
+        }}
+      >
+        {autoBoss ? '⚔️ Auto-Boss ON' : '▶ Auto-Boss OFF'}
       </button>
 
-      <div style={{ display: 'flex', gap: '6px' }}>
-        <button style={battleBtn(false, 'auto', autoBattle)} onClick={onToggleAuto}>
-          {autoBattle ? '⏸ Auto ON' : '▶ Auto OFF'}
-        </button>
-        {([3000, 1500, 700] as const).map((ms) => (
-          <button
-            key={ms}
-            style={battleBtn(false, 'speed', battleSpeed === ms)}
-            onClick={() => onSpeed(ms)}
-          >
-            {ms === 3000 ? 'Slow' : ms === 1500 ? 'Norm' : 'Fast'}
-          </button>
-        ))}
+      <div style={{ fontSize: '11px', color: '#6b7280', lineHeight: '1.6' }}>
+        {autoBoss
+          ? 'Automatically challenges the boss when kill goal is reached and advances to the next zone.'
+          : 'Enable to auto-challenge bosses and progress through zones.'}
       </div>
 
-      {lastBattleLog.length > 0 && (
-        <>
-          <p style={{ ...sectionLabel, marginTop: '4px' }}>Recent Battles</p>
-          <div style={{ fontSize: '10px' }}>
-            {lastBattleLog.map((e) => (
-              <div key={e.id} style={{
-                display: 'flex', justifyContent: 'space-between',
-                padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
-              }}>
-                <span style={{ color: e.victory ? '#4ade80' : '#f87171' }}>
-                  {e.victory ? '✓' : '✗'} Z{e.zone}-R{e.room}
-                  {e.leveledUp ? ' 🆙' : ''}{e.drop ? ' 📦' : ''}
-                </span>
-                <span style={{ color: '#f59e0b' }}>+{e.gold.toLocaleString()} 🟡</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      <div style={{
+        background: 'rgba(124,58,237,0.08)', borderRadius: '8px',
+        padding: '10px', fontSize: '11px', color: '#9ca3af',
+      }}>
+        <div style={{ marginBottom: '4px', color: '#6b7280', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Zone Info</div>
+        <div style={{ color: '#e8e0ff', fontWeight: 700, marginBottom: '2px' }}>{zoneName || '—'}</div>
+        <div>Kills: <span style={{ color: kills >= requiredKills ? '#4ade80' : '#a78bfa', fontWeight: 700 }}>{kills}</span> / {requiredKills}</div>
+      </div>
     </div>
   );
 }
@@ -192,7 +155,6 @@ export default function GamePage() {
   // ── Data hooks ─────────────────────────────────────────────────────────────
   const { data: playerStateData } = usePlayerState();
   const { data: stageData } = useStageProgress();
-  const advanceRoom = useAdvanceRoom();
   const { data: offlinePreview } = useOfflineRewardPreview();
   const claimOffline = useClaimOfflineReward();
 
@@ -211,15 +173,6 @@ export default function GamePage() {
   const [showOfflineReward, setShowOfflineReward] = useState(false);
   const [dailyStatus, setDailyStatus] = useState<DailyRewardStatusDto | null>(null);
   const [showDailyReward, setShowDailyReward] = useState(false);
-  const [autoBattle, setAutoBattle] = useState(false);
-  const [battleSpeed, setBattleSpeed] = useState(1500);
-  const [battleLog, setBattleLog] = useState<Array<{
-    id: number; victory: boolean; gold: number; zone: number; room: number;
-    leveledUp: boolean; drop: boolean;
-  }>>([]);
-  const logIdRef = useRef(0);
-  const autoBattleRef = useRef(autoBattle);
-  autoBattleRef.current = autoBattle;
 
   // ── Socket events ──────────────────────────────────────────────────────────
   useSocketEvent('notification', ({ payload }) => {
@@ -253,43 +206,11 @@ export default function GamePage() {
     return () => clearInterval(id);
   }, []);
 
-  // ── Battle flow ────────────────────────────────────────────────────────────
-  const handleBattle = () => {
-    if (advanceRoom.isPending) return;
-    advanceRoom.mutate(undefined, {
-      onSuccess: (result) => {
-        setBattleLog((prev) => [
-          {
-            id: ++logIdRef.current,
-            victory: result.victory,
-            gold: result.goldEarned,
-            zone: result.newZone,
-            room: result.newRoom,
-            leveledUp: result.leveledUp,
-            drop: result.drop.dropped,
-          },
-          ...prev.slice(0, 7),
-        ]);
-      },
-    });
-  };
-
-  // Auto-battle interval
-  useEffect(() => {
-    if (!autoBattle) return;
-    const id = setInterval(() => {
-      if (autoBattleRef.current && !advanceRoom.isPending) handleBattle();
-    }, battleSpeed);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoBattle, battleSpeed]);
-
   // ── Derived display values ─────────────────────────────────────────────────
   const displayProfile = playerStateData?.profile ?? authPlayer ?? null;
   const currencies = playerState?.currencies ?? playerStateData?.currencies ?? null;
   const progress = stageData;
   const questsReady = 0;
-
 
   const handleTab = (id: string) => {
     setActiveTab(id);
@@ -339,13 +260,11 @@ export default function GamePage() {
         }
         right={
           <RightPanel
-            isPending={advanceRoom.isPending}
-            lastBattleLog={battleLog}
-            autoBattle={autoBattle}
-            battleSpeed={battleSpeed}
-            onBattle={handleBattle}
-            onToggleAuto={() => setAutoBattle((v) => !v)}
-            onSpeed={setBattleSpeed}
+            autoBoss={combatScene.autoBoss}
+            onToggleAutoBoss={combatScene.toggleAutoBoss}
+            kills={combatScene.kills}
+            requiredKills={combatScene.requiredKills}
+            zoneName={combatScene.zoneName}
           />
         }
         bottomNav={

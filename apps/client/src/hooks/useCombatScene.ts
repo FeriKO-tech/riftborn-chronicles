@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { Application } from 'pixi.js';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { combatSceneApi } from '../api/combat-scene.api';
 import { CombatScene } from '../game/scene/CombatScene';
 import { notify } from '../store/notification.store';
+import { PLAYER_STATE_KEY } from './usePlayerQuery';
 
 export interface CombatSceneState {
   kills: number;
@@ -16,6 +17,8 @@ export interface CombatSceneState {
   bossName: string;
   bossHpPercent: number;
   heroHpPercent: number;
+  autoBoss: boolean;
+  toggleAutoBoss: () => void;
   triggerBoss: () => void;
 }
 
@@ -38,6 +41,11 @@ export function useCombatScene(
   const [bossName, setBossName]              = useState('');
   const [bossHpPercent, setBossHpPercent]    = useState(0);
   const [heroHpPercent, setHeroHpPercent]    = useState(1);
+  const [autoBoss, setAutoBoss]              = useState(false);
+  const autoBossRef = useRef(false);
+  autoBossRef.current = autoBoss;
+
+  const qc = useQueryClient();
 
   // ── Kill enemy mutation ────────────────────────────────────────────────────
 
@@ -47,6 +55,8 @@ export function useCombatScene(
       setKills(data.kills);
       setBossUnlocked(data.bossUnlocked);
       if (data.leveledUp) notify.success(`⬆️ Level Up! Now level ${data.newLevel}`);
+      // Refresh player state so gold/exp/level update in the top HUD
+      void qc.invalidateQueries({ queryKey: PLAYER_STATE_KEY });
     },
     onError: () => { /* silent — visual already played out */ },
   });
@@ -202,6 +212,15 @@ export function useCombatScene(
       });
   }, [bossUnlocked, bossMutation]);
 
+  // ── Auto-boss: when bossUnlocked flips to true and autoBoss is on ─────────
+  useEffect(() => {
+    if (bossUnlocked && autoBossRef.current && !bossBusyRef.current) {
+      triggerBoss();
+    }
+  }, [bossUnlocked, triggerBoss]);
+
+  const toggleAutoBoss = useCallback(() => setAutoBoss((v) => !v), []);
+
   return {
     kills,
     requiredKills,
@@ -212,6 +231,8 @@ export function useCombatScene(
     bossName,
     bossHpPercent,
     heroHpPercent,
+    autoBoss,
+    toggleAutoBoss,
     triggerBoss,
   };
 }
