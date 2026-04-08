@@ -331,6 +331,8 @@ export default function GamePage() {
               bossActive={combatScene.bossActive}
               bossName={combatScene.bossName}
               zoneCleared={combatScene.zoneCleared}
+              bossHpPercent={combatScene.bossHpPercent}
+              heroHpPercent={combatScene.heroHpPercent}
               onBossClick={combatScene.triggerBoss}
             />
           </div>

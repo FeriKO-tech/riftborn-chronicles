@@ -70,6 +70,7 @@ export type {
 export type { EnemyArchetype, SpawnLane } from './types/combat-scene.types';
 export type {
   EnemyTypeDto,
+  HeroSceneStatsDto,
   SpawnPointDto,
   ZoneDefinitionDto,
   ZoneCombatStateDto,

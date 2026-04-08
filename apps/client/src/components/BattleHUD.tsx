@@ -8,6 +8,8 @@ interface Props {
   bossActive: boolean;
   bossName: string;
   zoneCleared: boolean;
+  bossHpPercent: number;
+  heroHpPercent: number;
   onBossClick: () => void;
 }
 
@@ -148,9 +150,59 @@ function ZoneClearBanner() {
   );
 }
 
+function BossHpBar({ percent, name }: { percent: number; name: string }) {
+  return (
+    <div style={{
+      position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
+      pointerEvents: 'none', minWidth: '200px',
+    }}>
+      <span style={{ fontSize: '10px', fontWeight: 700, color: '#f59e0b', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        ☠ {name}
+      </span>
+      <div style={{ width: '200px', height: '8px', background: 'rgba(255,255,255,0.07)', borderRadius: '4px', overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', width: `${Math.max(0, percent) * 100}%`, borderRadius: '4px',
+          background: percent > 0.5
+            ? 'linear-gradient(90deg,#ef4444,#dc2626)'
+            : percent > 0.25
+            ? 'linear-gradient(90deg,#f97316,#ea580c)'
+            : 'linear-gradient(90deg,#fbbf24,#f59e0b)',
+          transition: 'width 0.15s ease',
+          boxShadow: '0 0 8px rgba(239,68,68,0.5)',
+        }} />
+      </div>
+      <span style={{ fontSize: '10px', color: '#9ca3af' }}>{Math.round(percent * 100)}%</span>
+    </div>
+  );
+}
+
+function HeroHpIndicator({ percent }: { percent: number }) {
+  const color = percent > 0.5 ? '#4ade80' : percent > 0.25 ? '#fbbf24' : '#f87171';
+  return (
+    <div style={{
+      position: 'absolute', top: '10px', right: '12px',
+      display: 'flex', alignItems: 'center', gap: '6px',
+      background: 'rgba(13,8,33,0.72)', border: '1px solid rgba(74,222,128,0.25)',
+      borderRadius: '8px', padding: '4px 10px',
+      backdropFilter: 'blur(4px)', pointerEvents: 'none',
+    }}>
+      <span style={{ fontSize: '10px', color: '#6b7280', fontWeight: 700 }}>HP</span>
+      <div style={{ width: '60px', height: '5px', background: 'rgba(255,255,255,0.07)', borderRadius: '3px', overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', width: `${Math.max(0, percent) * 100}%`, borderRadius: '3px',
+          background: color, transition: 'width 0.15s ease',
+          boxShadow: `0 0 6px ${color}`,
+        }} />
+      </div>
+      <span style={{ fontSize: '10px', fontWeight: 700, color }}>{Math.round(percent * 100)}%</span>
+    </div>
+  );
+}
+
 export default function BattleHUD({
   zoneName, kills, requiredKills, bossUnlocked,
-  bossActive, bossName, zoneCleared, onBossClick,
+  bossActive, bossName, zoneCleared, bossHpPercent, heroHpPercent, onBossClick,
 }: Props) {
   return (
     <div style={hudRoot}>
@@ -163,6 +215,12 @@ export default function BattleHUD({
 
       {/* Zone badge */}
       {zoneName && <div style={zoneBadge}>⚔ {zoneName}</div>}
+
+      {/* Hero HP */}
+      <HeroHpIndicator percent={heroHpPercent} />
+
+      {/* Boss HP bar (shown during boss fight) */}
+      {bossActive && <BossHpBar percent={bossHpPercent} name={bossName || 'Zone Boss'} />}
 
       {/* Kill bar + boss button */}
       <div style={killBarWrap}>

@@ -1,6 +1,6 @@
 import type { Application } from 'pixi.js';
 import { Container, Graphics, Text, TextStyle } from 'pixi.js';
-import type { ZoneDefinitionDto } from '@riftborn/shared';
+import type { ZoneDefinitionDto, HeroSceneStatsDto } from '@riftborn/shared';
 import { HeroActor, HERO_REF_X, HERO_REF_Y } from '../actors/HeroActor';
 import { EnemyActor } from '../actors/EnemyActor';
 import { BossActor } from '../actors/BossActor';
@@ -15,6 +15,8 @@ const REF_H = 460;
 
 // Minimum hero-to-enemy gap before attack triggers
 const ATTACK_COOLDOWN_MS = 650;
+const ENEMY_ATTACK_RANGE = 70; // ref-space distance for enemy to hit hero
+const ENEMY_ATTACK_CD_MS = 1200; // enemy attack cooldown
 
 export interface CombatSceneCallbacks {
   onEnemyKilled: (typeId: string) => void;
@@ -38,9 +40,13 @@ export class CombatScene {
   private def: ZoneDefinitionDto;
   private callbacks: CombatSceneCallbacks;
 
+  private heroDamage = 50;
   private attackCooldown = 0;
   private bossMode = false;
   private bossDefeated = false;
+  private bossDrainTimer = 0;
+  private bossDrainActive = false;
+  private bossDrainDuration = 2.5;
 
   // FX systems
   private readonly fx: ParticleSystem;
@@ -59,11 +65,13 @@ export class CombatScene {
     def: ZoneDefinitionDto,
     playerClass: string,
     playerName: string,
+    heroStats: HeroSceneStatsDto,
     callbacks: CombatSceneCallbacks,
   ) {
     this.app = app;
     this.def = def;
     this.callbacks = callbacks;
+    this.heroDamage = Math.max(1, heroStats.attack);
 
     this.root        = new Container();
     this.bgLayer     = new Container();
@@ -92,6 +100,8 @@ export class CombatScene {
     app.stage.addChild(this.root);
 
     this.hero = new HeroActor(playerClass, playerName);
+    this.hero.maxHp = heroStats.maxHp;
+    this.hero.hp    = heroStats.maxHp;
     this.heroLayer.addChild(this.hero);
 
     this._drawBackground();
@@ -111,9 +121,12 @@ export class CombatScene {
     this.floatText.destroy();
     this.hero.refX = HERO_REF_X;
     this.hero.refY = HERO_REF_Y;
+    this.hero.hp   = this.hero.maxHp;
     this.hero.setState('idle');
     this.attackCooldown = 0;
     this.shakeTimer = 0;
+    this.bossDrainActive = false;
+    this.bossDrainTimer  = 0;
     this.root.x = 0; this.root.y = 0;
     this.spawn.reset();
     this._drawBackground();
@@ -155,13 +168,29 @@ export class CombatScene {
   resolveBoss(victory: boolean): void {
     if (!this.boss) return;
     if (victory) {
-      this.boss.triggerDeath();
+      this.bossDrainActive = true;
+      this.bossDrainTimer  = this.bossDrainDuration;
       this.bossDefeated = true;
-      this.clearFlashTimer = 1.5;
     } else {
-      this.hero.setState('hurt');
-      this.bossMode = false; // allow retrying
+      this.hero.takeDamage(this.hero.maxHp * 0.4);
+      this.shakeTimer = 0.2; this.shakeIntensity = 8;
+      this.bossMode = false;
     }
+  }
+
+  updateHeroStats(stats: HeroSceneStatsDto): void {
+    this.heroDamage  = Math.max(1, stats.attack);
+    this.hero.maxHp  = stats.maxHp;
+    this.hero.hp     = Math.min(this.hero.hp, stats.maxHp);
+  }
+
+  getBossHpPercent(): number {
+    if (!this.boss) return 0;
+    return Math.max(0, this.boss.hp / this.boss.maxHp);
+  }
+
+  getHeroHpPercent(): number {
+    return Math.max(0, this.hero.hp / this.hero.maxHp);
   }
 
   // ── Main update (called by PixiJS ticker) ────────────────────────────────
@@ -199,45 +228,62 @@ export class CombatScene {
     // Attack cooldown
     if (this.attackCooldown > 0) this.attackCooldown -= deltaMS;
 
-    // Hero movement + AI (skip if boss entry in progress)
-    const bossReady = this.boss?.isEntryDone() ?? false;
-    if (!this.hero.isAttacking()) {
-      if (this.bossMode && this.boss && bossReady) {
-        // Target boss
-        const bossTarget = [{ id: this.boss.id, refX: this.boss.refX, refY: this.boss.refY }];
-        const mv = this.movement.update(this.hero.refX, this.hero.refY, bossTarget, deltaMS);
-        this.hero.refX = mv.newRefX;
-        this.hero.refY = mv.newRefY;
-        if (mv.inAttackRange && this.attackCooldown <= 0 && !this.bossDefeated) {
-          this.hero.setState('attack');
-          this.attackCooldown = ATTACK_COOLDOWN_MS;
-          // Outcome set externally via resolveBoss() after server responds
-        } else {
-          this.hero.setState('move');
-        }
-      } else if (!this.bossMode && aliveTargets.length > 0) {
-        const mv = this.movement.update(this.hero.refX, this.hero.refY, aliveTargets, deltaMS);
-        this.hero.refX = mv.newRefX;
-        this.hero.refY = mv.newRefY;
-        if (mv.inAttackRange && mv.targetId && this.attackCooldown <= 0) {
-          const target = this.enemies.get(mv.targetId);
-          if (target && target.isAlive()) {
+    // Skip AI when hero is dead
+    if (!this.hero.isDead()) {
+      // Hero movement + AI (skip if boss entry in progress)
+      const bossReady = this.boss?.isEntryDone() ?? false;
+      if (!this.hero.isAttacking()) {
+        if (this.bossMode && this.boss && bossReady) {
+          const bossTarget = [{ id: this.boss.id, refX: this.boss.refX, refY: this.boss.refY }];
+          const mv = this.movement.update(this.hero.refX, this.hero.refY, bossTarget, deltaMS);
+          this.hero.refX = mv.newRefX;
+          this.hero.refY = mv.newRefY;
+          if (mv.inAttackRange && this.attackCooldown <= 0 && !this.bossDefeated) {
             this.hero.setState('attack');
             this.attackCooldown = ATTACK_COOLDOWN_MS;
-            target.triggerDeath();
-            // FX on kill
-            this.fx.emitKillSparks(target.x, target.y, target.accent);
-            this.fx.emitDeathBurst(target.x, target.y, target.color);
             this.fx.emitHeroAttackTrail(this.hero.x, this.hero.y, 0x7c3aed);
-            this.floatText.emitGold(target.x, target.y, target.goldReward);
-            this.floatText.emitExp(target.x, target.y - 18, target.expReward);
-            this.callbacks.onEnemyKilled(target.typeId);
+          } else {
+            this.hero.setState('move');
+          }
+        } else if (!this.bossMode && aliveTargets.length > 0) {
+          const mv = this.movement.update(this.hero.refX, this.hero.refY, aliveTargets, deltaMS);
+          this.hero.refX = mv.newRefX;
+          this.hero.refY = mv.newRefY;
+          if (mv.inAttackRange && mv.targetId && this.attackCooldown <= 0) {
+            const target = this.enemies.get(mv.targetId);
+            if (target && target.isAlive()) {
+              this.hero.setState('attack');
+              this.attackCooldown = ATTACK_COOLDOWN_MS;
+              const killed = target.takeDamage(this.heroDamage);
+              // Hit FX
+              this.fx.emitHeroAttackTrail(this.hero.x, this.hero.y, 0x7c3aed);
+              this.fx.emitKillSparks(target.x, target.y, target.accent, killed ? 10 : 4);
+              if (killed) {
+                this.fx.emitDeathBurst(target.x, target.y, target.color);
+                this.floatText.emitGold(target.x, target.y, target.goldReward);
+                this.floatText.emitExp(target.x, target.y - 18, target.expReward);
+                this.callbacks.onEnemyKilled(target.typeId);
+              }
+            }
+          } else {
+            this.hero.setState('move');
           }
         } else {
-          this.hero.setState('move');
+          this.hero.setState('idle');
         }
-      } else {
-        this.hero.setState('idle');
+      }
+
+      // Enemy attack-back: alive enemies in range hit hero
+      for (const [, e] of this.enemies) {
+        if (!e.isAlive()) continue;
+        const dx = this.hero.refX - e.refX;
+        const dy = this.hero.refY - e.refY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < ENEMY_ATTACK_RANGE && e.attackTimer <= 0) {
+          this.hero.takeDamage(Math.max(1, e.baseAtk - Math.floor(this.heroDamage * 0.1)));
+          e.attackTimer = ENEMY_ATTACK_CD_MS;
+          this.fx.emitKillSparks(this.hero.x, this.hero.y, 0xef4444, 3);
+        }
       }
     }
 
@@ -272,6 +318,17 @@ export class CombatScene {
       const e = this.enemies.get(id)!;
       this.enemyLayer.removeChild(e);
       this.enemies.delete(id);
+    }
+
+    // Boss HP drain animation (victory → gradual drain)
+    if (this.bossDrainActive && this.boss) {
+      this.bossDrainTimer -= deltaMS / 1000;
+      const drainPct = 1 - Math.max(0, this.bossDrainTimer / this.bossDrainDuration);
+      this.boss.hp = Math.max(0, this.boss.maxHp * (1 - drainPct));
+      if (this.bossDrainTimer <= 0) {
+        this.boss.triggerDeath();
+        this.bossDrainActive = false;
+      }
     }
 
     // Update boss

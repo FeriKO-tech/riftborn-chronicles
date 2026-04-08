@@ -57,11 +57,23 @@ export interface ZoneCombatStateDto {
   zoneCleared: boolean;
 }
 
+// ── Hero scene stats (computed from player stats, sent to client) ────────────
+
+export interface HeroSceneStatsDto {
+  maxHp: number;
+  attack: number;
+  defense: number;
+  speed: number;
+  critChance: number;
+  critDamage: number;
+}
+
 // ── Full scene config (initial load) ────────────────────────────────────────
 
 export interface ZoneSceneConfigDto {
   definition: ZoneDefinitionDto;
   combatState: ZoneCombatStateDto;
+  heroStats: HeroSceneStatsDto;
 }
 
 // ── Kill enemy ───────────────────────────────────────────────────────────────

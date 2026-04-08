@@ -14,6 +14,8 @@ export interface CombatSceneState {
   zoneCleared: boolean;
   zoneName: string;
   bossName: string;
+  bossHpPercent: number;
+  heroHpPercent: number;
   triggerBoss: () => void;
 }
 
@@ -34,6 +36,8 @@ export function useCombatScene(
   const [zoneCleared, setZoneCleared]        = useState(false);
   const [zoneName, setZoneName]              = useState('');
   const [bossName, setBossName]              = useState('');
+  const [bossHpPercent, setBossHpPercent]    = useState(0);
+  const [heroHpPercent, setHeroHpPercent]    = useState(1);
 
   // ── Kill enemy mutation ────────────────────────────────────────────────────
 
@@ -100,6 +104,7 @@ export function useCombatScene(
         config.definition,
         playerClass,
         playerName,
+        config.heroStats,
         {
           onEnemyKilled: (typeId) => {
             killMutation.mutate({ zone: zoneRef.current, enemyTypeId: typeId });
@@ -107,7 +112,14 @@ export function useCombatScene(
         },
       );
 
-      app.ticker.add((t) => scene.update(t.deltaMS));
+      app.ticker.add((t) => {
+        scene.update(t.deltaMS);
+        // Poll HP for HUD at ~10fps (every 6th frame at 60fps)
+        if (Math.floor(t.lastTime / 100) !== Math.floor((t.lastTime - t.deltaMS) / 100)) {
+          setBossHpPercent(scene.getBossHpPercent());
+          setHeroHpPercent(scene.getHeroHpPercent());
+        }
+      });
 
       const handleResize = () => {
         const w = container.clientWidth || 800;
@@ -198,6 +210,8 @@ export function useCombatScene(
     zoneCleared,
     zoneName,
     bossName,
+    bossHpPercent,
+    heroHpPercent,
     triggerBoss,
   };
 }

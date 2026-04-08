@@ -12,7 +12,9 @@ export class EnemyActor extends Container {
   readonly maxHp: number;
   readonly goldReward: number;
   readonly expReward: number;
+  readonly baseAtk: number;
   hp: number;
+  attackTimer = 0;
 
   // Reference-field position (set by CombatScene each tick)
   refX: number;
@@ -42,6 +44,7 @@ export class EnemyActor extends Container {
     this.accent     = parseInt(type.accentColor.replace('#', ''), 16);
     this.goldReward = type.goldReward;
     this.expReward  = type.expReward;
+    this.baseAtk    = type.baseAtk;
     this.size    = type.size;
 
     this.alpha   = 0;
@@ -166,6 +169,18 @@ export class EnemyActor extends Container {
     g.circle(0, -s * 0.18, s * 0.26); g.fill({ color: 0xef4444, alpha: 0.12 });
   }
 
+  /** Deal damage to this enemy. Returns true if this hit killed it. */
+  takeDamage(amount: number): boolean {
+    if (!this.isAlive()) return false;
+    this.hp = Math.max(0, this.hp - amount);
+    this._hurtFlash = 0.12;
+    if (this.hp <= 0) {
+      this.triggerDeath();
+      return true;
+    }
+    return false;
+  }
+
   triggerDeath(): void {
     if (this._state === 'dying' || this._state === 'dead') return;
     this._state = 'dying';
@@ -174,6 +189,8 @@ export class EnemyActor extends Container {
 
   isDead(): boolean  { return this._state === 'dead'; }
   isAlive(): boolean { return this._state === 'idle'; }
+
+  private _hurtFlash = 0;
 
   update(deltaMs: number): void {
     const dt = deltaMs / 1000;
@@ -191,10 +208,17 @@ export class EnemyActor extends Container {
       case 'idle': {
         const bob = Math.sin(this.tick * 2.8) * 2.5;
         this.body.y = bob;
-        this.alpha = 1;
+        // Hurt flash
+        if (this._hurtFlash > 0) {
+          this._hurtFlash -= dt;
+          this.alpha = 0.4 + Math.sin(this.tick * 40) * 0.3;
+        } else {
+          this.alpha = 1;
+        }
         this.scale.set(1);
-        // Update HP bar
         this._updateHpBar();
+        // Decrement attack timer
+        if (this.attackTimer > 0) this.attackTimer -= deltaMs;
         break;
       }
       case 'dying': {

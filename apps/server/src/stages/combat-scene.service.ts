@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
+  HeroSceneStatsDto,
   KillEnemyRequestDto,
   KillEnemyResponseDto,
   ZoneClearResponseDto,
@@ -28,21 +29,45 @@ export class CombatSceneService {
   // ── Scene config (initial load) ───────────────────────────────────────────
 
   async getSceneConfig(playerId: string): Promise<ZoneSceneConfigDto> {
-    const progress = await this.prisma.stageProgress.findUnique({ where: { playerId } });
-    if (!progress) throw new NotFoundException('Stage progress not found');
+    const [progress, player, killRecord] = await Promise.all([
+      this.prisma.stageProgress.findUnique({ where: { playerId } }),
+      this.prisma.player.findUnique({ where: { id: playerId } }),
+      null as any, // placeholder, resolved below
+    ]);
+    if (!progress || !player) throw new NotFoundException('Player or progress not found');
 
     const zone = progress.currentZone;
     const definition = getZoneSceneDefinition(zone);
 
-    const killRecord = await this.prisma.zoneKillProgress.findUnique({
+    const killRec = await this.prisma.zoneKillProgress.findUnique({
       where: { playerId_zone: { playerId, zone } },
     });
+    const kills = killRec?.kills ?? 0;
 
-    const kills = killRecord?.kills ?? 0;
+    // Compute hero stats for the client scene
+    const equipBonus = await this.inventory.getEquippedBonuses(playerId);
+    const companionBonus = getCompanionBonus(
+      (player as { activeCompanionId?: string | null }).activeCompanionId,
+    );
+    const stats = this.combat.computePlayerStats(
+      player.level,
+      player.class,
+      equipBonus,
+      companionBonus,
+    );
+    const heroStats: HeroSceneStatsDto = {
+      maxHp: stats.maxHp,
+      attack: stats.attack,
+      defense: stats.defense,
+      speed: stats.speed,
+      critChance: stats.critChance,
+      critDamage: stats.critDamage,
+    };
 
     return {
       definition,
       combatState: this.buildCombatState(zone, kills, definition.requiredKills),
+      heroStats,
     };
   }
 

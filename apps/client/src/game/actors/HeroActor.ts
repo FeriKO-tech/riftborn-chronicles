@@ -1,6 +1,6 @@
 import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 
-export type HeroState = 'idle' | 'move' | 'attack' | 'hurt';
+export type HeroState = 'idle' | 'move' | 'attack' | 'hurt' | 'dead';
 
 const CLASS_ACCENT: Record<string, number> = {
   VOIDBLADE: 0x7c3aed,
@@ -21,6 +21,7 @@ export class HeroActor extends Container {
   private tick = 0;
   private attackCooldown = 0;
   private hurtTimer = 0;
+  private deathTimer = 0;
   private _state: HeroState = 'idle';
 
   private readonly aura: Graphics;
@@ -102,18 +103,51 @@ export class HeroActor extends Container {
   }
 
   setState(s: HeroState): void {
-    if (this._state === 'attack' && s !== 'hurt') return; // can't interrupt attack
+    if (this._state === 'dead') return; // can't change state when dead
+    if (this._state === 'attack' && s !== 'hurt' && s !== 'dead') return;
     this._state = s;
     if (s === 'attack') this.attackCooldown = 0.55;
     if (s === 'hurt')   this.hurtTimer = 0.3;
   }
 
+  /** Apply damage, returns true if hero died. */
+  takeDamage(amount: number): boolean {
+    if (this._state === 'dead') return false;
+    this.hp = Math.max(0, this.hp - amount);
+    if (this._state !== 'attack') this._state = 'hurt';
+    this.hurtTimer = 0.2;
+    if (this.hp <= 0) {
+      this._state = 'dead';
+      this.deathTimer = 2.0;
+      return true;
+    }
+    return false;
+  }
+
   getState(): HeroState { return this._state; }
   isAttacking(): boolean { return this._state === 'attack'; }
+  isDead(): boolean { return this._state === 'dead'; }
 
   update(deltaMs: number): void {
     const dt = deltaMs / 1000;
     this.tick += dt;
+
+    // Death / respawn
+    if (this._state === 'dead') {
+      this.deathTimer -= dt;
+      this.alpha = 0.15 + Math.sin(this.tick * 6) * 0.1;
+      this.scale.set(0.85);
+      if (this.deathTimer <= 0) {
+        this.hp = this.maxHp;
+        this._state = 'idle';
+        this.refX = HERO_REF_X;
+        this.refY = HERO_REF_Y;
+        this.alpha = 1;
+        this.scale.set(1);
+      }
+      this._updateHpBar();
+      return;
+    }
 
     if (this.attackCooldown > 0) {
       this.attackCooldown -= dt;
@@ -160,7 +194,10 @@ export class HeroActor extends Container {
     // Hurt flash
     this.alpha = this._state === 'hurt' ? (0.5 + Math.sin(t * 30) * 0.5) : 1;
 
-    // HP bar
+    this._updateHpBar();
+  }
+
+  private _updateHpBar(): void {
     const pct = Math.max(0, Math.min(1, this.hp / this.maxHp));
     const bw = 44;
     this.hpBar.clear();
