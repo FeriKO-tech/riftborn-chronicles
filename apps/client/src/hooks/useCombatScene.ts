@@ -6,6 +6,7 @@ import { combatSceneApi } from '../api/combat-scene.api';
 import { CombatScene } from '../game/scene/CombatScene';
 import { notify } from '../store/notification.store';
 import { PLAYER_STATE_KEY } from './usePlayerQuery';
+import { STAGE_PROGRESS_KEY } from './useStageQuery';
 
 export interface CombatSceneState {
   kills: number;
@@ -184,7 +185,10 @@ export function useCombatScene(
 
         if (data.victory && data.result) {
           setZoneCleared(true);
-          notify.loot(`⚔️ Zone cleared! → ${data.result.newZoneName}`);
+          notify.loot(`⚔️ Zone cleared! +${data.result.rewards.goldBonus.toLocaleString()} 🟡 → ${data.result.newZoneName}`);
+          // Refresh player state + stage progress so HUD gold/level and left panel update
+          void qc.invalidateQueries({ queryKey: PLAYER_STATE_KEY });
+          void qc.invalidateQueries({ queryKey: STAGE_PROGRESS_KEY });
 
           setTimeout(() => {
             void combatSceneApi.getSceneConfig().then((fresh) => {

@@ -13,24 +13,13 @@ import GameLayout from '../components/GameLayout';
 import HUD from '../components/HUD';
 import NavBar from '../components/NavBar';
 import OfflineRewardsModal from '../components/OfflineRewardsModal';
-import InventoryPanel from '../components/InventoryPanel';
+import HeroPanel from '../components/HeroPanel';
 import DailyRewardModal from '../components/DailyRewardModal';
 import QuestsPanel from '../components/QuestsPanel';
 import StagesPanel from '../components/StagesPanel';
-import CompanionsPanel from '../components/CompanionsPanel';
 import BossPanel from '../components/BossPanel';
 import PvpPanel from '../components/PvpPanel';
 import ShopPanel from '../components/ShopPanel';
-
-// ── Pure style helpers ─────────────────────────────────────────────────────────
-
-const roomPip = (filled: boolean): React.CSSProperties => ({
-  width: '20px',
-  height: '6px',
-  borderRadius: '3px',
-  background: filled ? '#7c3aed' : 'rgba(255,255,255,0.08)',
-  transition: 'background 0.2s',
-});
 
 // ── Sub-panel styles (left / right sidebars) ──────────────────────────────────
 
@@ -47,15 +36,17 @@ const sectionLabel: React.CSSProperties = {
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function LeftPanel({ zone, roomNum, zoneName, highestZone }: {
-  zone: number | undefined;
-  roomNum: number | undefined;
-  zoneName: string | undefined;
+function LeftPanel({ zoneName, kills, requiredKills, bossUnlocked, highestZone }: {
+  zoneName: string;
+  kills: number;
+  requiredKills: number;
+  bossUnlocked: boolean;
   highestZone: number | undefined;
 }) {
+  const pct = requiredKills > 0 ? Math.min(1, kills / requiredKills) : 0;
   return (
     <div style={panelPad}>
-      <p style={sectionLabel}>Stage Progress</p>
+      <p style={sectionLabel}>Zone Progress</p>
       <div style={{
         background: 'rgba(124,58,237,0.1)',
         border: '1px solid rgba(167,139,250,0.2)',
@@ -63,22 +54,29 @@ function LeftPanel({ zone, roomNum, zoneName, highestZone }: {
         padding: '12px',
         marginBottom: '12px',
       }}>
-        <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>
-          Zone {zone ?? '—'}
-        </p>
         <p style={{ fontSize: '15px', fontWeight: 700, color: '#e8e0ff', marginBottom: '10px' }}>
-          {zoneName ?? 'Loading…'}
+          {zoneName || 'Loading...'}
         </p>
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
-          {Array.from({ length: 10 }, (_, i) => (
-            <div key={i} style={roomPip((roomNum ?? 0) > i)} />
-          ))}
+        <div style={{ marginBottom: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+            <span style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Kill Progress</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: bossUnlocked ? '#4ade80' : '#e8e0ff' }}>
+              {kills} / {requiredKills}
+            </span>
+          </div>
+          <div style={{ height: '6px', background: 'rgba(255,255,255,0.07)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', width: `${pct * 100}%`, borderRadius: '3px',
+              background: bossUnlocked ? 'linear-gradient(90deg,#4ade80,#22c55e)' : 'linear-gradient(90deg,#7c3aed,#a855f7)',
+              transition: 'width 0.3s ease',
+            }} />
+          </div>
         </div>
-        <p style={{ fontSize: '11px', color: '#9ca3af' }}>
-          Room {roomNum ?? '—'} / 10
-          {roomNum === 10 ? <span style={{ color: '#f59e0b', marginLeft: '6px' }}>👑 Boss</span> : null}
-          {roomNum === 5 ? <span style={{ color: '#a78bfa', marginLeft: '6px' }}>⭐ Elite</span> : null}
-        </p>
+        {bossUnlocked && (
+          <p style={{ fontSize: '11px', color: '#f59e0b', fontWeight: 600 }}>
+            Boss Ready
+          </p>
+        )}
       </div>
 
       {highestZone != null && highestZone > 0 && (
@@ -163,8 +161,7 @@ export default function GamePage() {
 
   // ── UI state ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('battle');
-  const [showInventory, setShowInventory] = useState(false);
-  const [showCompanions, setShowCompanions] = useState(false);
+  const [showHero, setShowHero] = useState(false);
   const [showBoss, setShowBoss] = useState(false);
   const [showPvp, setShowPvp] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
@@ -214,7 +211,7 @@ export default function GamePage() {
 
   const handleTab = (id: string) => {
     setActiveTab(id);
-    if (id === 'hero') { setShowInventory(true); setShowCompanions(true); }
+    if (id === 'hero') setShowHero(true);
     if (id === 'boss') setShowBoss(true);
     if (id === 'pvp') setShowPvp(true);
     if (id === 'quests') setShowQuests(true);
@@ -236,9 +233,10 @@ export default function GamePage() {
         }
         left={
           <LeftPanel
-            zone={progress?.currentZone}
-            roomNum={progress?.currentRoom}
-            zoneName={progress?.zoneInfo.name}
+            zoneName={combatScene.zoneName}
+            kills={combatScene.kills}
+            requiredKills={combatScene.requiredKills}
+            bossUnlocked={combatScene.bossUnlocked}
             highestZone={progress?.highestZone}
           />
         }
@@ -295,8 +293,7 @@ export default function GamePage() {
         />
       )}
 
-      {showInventory && <InventoryPanel onClose={() => { setShowInventory(false); setActiveTab('battle'); }} />}
-      {showCompanions && <CompanionsPanel onClose={() => { setShowCompanions(false); setActiveTab('battle'); }} />}
+      {showHero && <HeroPanel onClose={() => { setShowHero(false); setActiveTab('battle'); }} />}
       {showBoss && <BossPanel onClose={() => { setShowBoss(false); setActiveTab('battle'); }} />}
       {showPvp && <PvpPanel onClose={() => { setShowPvp(false); setActiveTab('battle'); }} />}
       {showQuests && <QuestsPanel onClose={() => { setShowQuests(false); setActiveTab('battle'); }} />}
