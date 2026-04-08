@@ -1,25 +1,32 @@
-import axios from 'axios';
+import { apiClient } from './client';
 import type {
+  ApiSuccess,
   KillEnemyRequestDto,
   KillEnemyResponseDto,
   ZoneClearResponseDto,
   ZoneSceneConfigDto,
 } from '@riftborn/shared';
 
-const BASE = '/api/v1/stages';
-
 export const combatSceneApi = {
-  getSceneConfig: (): Promise<ZoneSceneConfigDto> =>
-    axios.get<ZoneSceneConfigDto>(`${BASE}/me/scene`).then((r) => r.data),
+  getSceneConfig: async (): Promise<ZoneSceneConfigDto> => {
+    const { data } = await apiClient.get<ApiSuccess<ZoneSceneConfigDto>>('/stages/me/scene');
+    return data.data;
+  },
 
-  killEnemy: (dto: KillEnemyRequestDto): Promise<KillEnemyResponseDto> =>
-    axios.post<KillEnemyResponseDto>(`${BASE}/me/scene/kill`, dto).then((r) => r.data),
+  killEnemy: async (dto: KillEnemyRequestDto): Promise<KillEnemyResponseDto> => {
+    const { data } = await apiClient.post<ApiSuccess<KillEnemyResponseDto>>(
+      '/stages/me/scene/kill',
+      dto,
+    );
+    return data.data;
+  },
 
-  fightBoss: (zone: number): Promise<{ victory: boolean; result: ZoneClearResponseDto | null }> =>
-    axios
-      .post<{ victory: boolean; result: ZoneClearResponseDto | null }>(
-        `${BASE}/me/scene/boss`,
-        { zone },
-      )
-      .then((r) => r.data),
+  fightBoss: async (
+    zone: number,
+  ): Promise<{ victory: boolean; result: ZoneClearResponseDto | null }> => {
+    const { data } = await apiClient.post<
+      ApiSuccess<{ victory: boolean; result: ZoneClearResponseDto | null }>
+    >('/stages/me/scene/boss', { zone });
+    return data.data;
+  },
 };

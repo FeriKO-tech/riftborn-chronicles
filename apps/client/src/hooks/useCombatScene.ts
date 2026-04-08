@@ -62,14 +62,17 @@ export function useCombatScene(
     let cancelled = false;
 
     void (async () => {
-      const config = await combatSceneApi.getSceneConfig().catch(() => null);
+      const config = await combatSceneApi.getSceneConfig().catch((err) => {
+        console.error('[CombatScene] getSceneConfig failed:', err);
+        return null;
+      });
       if (cancelled || !config) return;
 
       const { Application } = await import('pixi.js');
       const app = new Application();
       await app.init({
-        width: container.clientWidth || 800,
-        height: container.clientHeight || 460,
+        width: 800,
+        height: 460,
         resolution: window.devicePixelRatio || 1,
         autoDensity: true,
         backgroundColor: 0x0c0117,
@@ -77,7 +80,20 @@ export function useCombatScene(
       });
       if (cancelled) { app.destroy(true); return; }
 
-      container.appendChild(app.canvas as HTMLCanvasElement);
+      const canvas = app.canvas as HTMLCanvasElement;
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.display = 'block';
+      canvas.style.position = 'absolute';
+      canvas.style.inset = '0';
+      container.appendChild(canvas);
+
+      // Resize to actual container dimensions after DOM insertion
+      requestAnimationFrame(() => {
+        const w = container.clientWidth || 800;
+        const h = container.clientHeight || 460;
+        if (w !== 800 || h !== 460) app.renderer.resize(w, h);
+      });
 
       const scene = new CombatScene(
         app,

@@ -30,6 +30,8 @@ const main: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '220px 1fr 240px',
   overflow: 'hidden',
+  height: '100%',
+  minHeight: 0,
 };
 
 const leftArea: React.CSSProperties = {
@@ -41,6 +43,8 @@ const leftArea: React.CSSProperties = {
 const centerArea: React.CSSProperties = {
   position: 'relative',
   overflow: 'hidden',
+  height: '100%',
+  minHeight: 0,
 };
 
 const rightArea: React.CSSProperties = {
