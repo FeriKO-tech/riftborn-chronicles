@@ -8,6 +8,8 @@ export type RewardKind =
   | 'forgeDust'
   | 'echoShards'
   | 'bossSeals'
+  | 'enchantStones'
+  | 'companion'
   | 'item';
 
 export interface ShopRewardDto {

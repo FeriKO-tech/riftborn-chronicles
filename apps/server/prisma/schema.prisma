@@ -55,6 +55,8 @@ model Player {
   lastLoginAt   DateTime?   @map("last_login_at")
   loginStreak   Int         @default(0) @map("login_streak")
   totalPlaytime Int         @default(0) @map("total_playtime")
+  totalKills    Int         @default(0) @map("total_kills")
+  bossKills     Int         @default(0) @map("boss_kills")
   createdAt     DateTime    @default(now()) @map("created_at")
   updatedAt     DateTime    @updatedAt @map("updated_at")
 
@@ -86,6 +88,7 @@ model PlayerCurrencies {
   voidCrystals   Int      @default(0) @map("void_crystals")
   resonanceCores Int      @default(150) @map("resonance_cores")
   forgeDust      Int      @default(0) @map("forge_dust")
+  enchantStones  Int      @default(0) @map("enchant_stones")
   echoShards     Int      @default(0) @map("echo_shards")
   arenaMarks     Int      @default(0) @map("arena_marks")
   bossSeals      Int      @default(0) @map("boss_seals")
@@ -154,6 +157,7 @@ model InventoryItem {
   defBonus   Int      @default(0) @map("def_bonus")
   hpBonus           Int      @default(0) @map("hp_bonus")
   enhancementLevel  Int      @default(0) @map("enhancement_level")
+  isLocked          Boolean  @default(false) @map("is_locked")
   obtainedAt        DateTime @default(now()) @map("obtained_at")
 
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
@@ -198,6 +202,7 @@ model PlayerCompanion {
   id         String   @id @default(uuid())
   playerId   String   @map("player_id")
   templateId String   @map("template_id")
+  level      Int      @default(1)
   obtainedAt DateTime @default(now()) @map("obtained_at")
 
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)

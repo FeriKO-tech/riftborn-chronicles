@@ -23,6 +23,7 @@ export type {
   PlayerCompanionDto,
   ActivateCompanionResponseDto,
   CompanionStateDto,
+  CompanionUpgradeResponseDto,
 } from './types/companion.types';
 export type {
   BossConfigDto,
@@ -53,6 +54,8 @@ export type {
   UnequipResponseDto,
   ItemDropDto,
   EquipmentBonusDto,
+  SalvageResponseDto,
+  EnchantItemResponseDto,
 } from './types/item.types';
 export type {
   CombatStatsDto,
@@ -78,6 +81,7 @@ export type {
   KillEnemyRequestDto,
   KillEnemyResponseDto,
   ZoneClearResponseDto,
+  BossRewardsDto,
 } from './types/combat-scene.types';
 export type { ShopCurrency, ShopSection, RewardKind } from './types/shop.types';
 export type {
@@ -99,3 +103,19 @@ export type {
   ClaimOfflineRewardResponseDto,
   HeartbeatResponseDto,
 } from './types/player.types';
+export type {
+  LeaderboardEntryDto,
+  LeaderboardResponseDto,
+} from './types/leaderboard.types';
+export type {
+  SkillDefinitionDto,
+  PlayerSkillDto,
+  SkillStateDto,
+  SkillUpgradeResponseDto,
+} from './types/skill.types';
+export type {
+  AchievementDefinitionDto,
+  PlayerAchievementDto,
+  AchievementStateDto,
+  AchievementUnlockResponseDto,
+} from './types/achievement.types';

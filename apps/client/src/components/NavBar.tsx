@@ -16,6 +16,9 @@ const NAV_ITEMS: NavItem[] = [
   { icon: '☠️', label: 'Boss', id: 'boss' },
   { icon: '🏆', label: 'PvP', id: 'pvp' },
   { icon: '📋', label: 'Quests', id: 'quests' },
+  { icon: '✨', label: 'Skills', id: 'skills' },
+  { icon: '🏅', label: 'Rank', id: 'leaderboard' },
+  { icon: '🎖️', label: 'Achieve', id: 'achievements' },
   { icon: '⚙️', label: 'Menu', id: 'menu' },
 ];
 

@@ -110,7 +110,7 @@ export default function OfflineRewardsModal({ preview, onClaimed }: Props) {
         ? `${Math.round(preview.idleHours * 60)} minutes`
         : `${preview.idleHours.toFixed(1)} hours`;
 
-  if (preview.goldEarned === 0) {
+  if (preview.goldEarned === 0 && preview.expEarned === 0) {
     onClaimed();
     return null;
   }
@@ -121,6 +121,14 @@ export default function OfflineRewardsModal({ preview, onClaimed }: Props) {
         <p style={titleStyle}>While you were away</p>
         <div style={goldStyle}>🟡 {preview.goldEarned.toLocaleString()}</div>
         <p style={goldLabel}>Gold Shards earned</p>
+
+        {preview.expEarned > 0 && (
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: '#60a5fa' }}>
+              ✨ {preview.expEarned.toLocaleString()} EXP
+            </div>
+          </div>
+        )}
 
         <div style={timeRow}>
           <span>⏰ Away for: {hoursLabel}</span>

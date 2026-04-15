@@ -12,7 +12,7 @@ import type {
 } from '@riftborn/shared';
 import { PrismaService } from '../database/prisma.service';
 
-const MAX_IDLE_HOURS = 8;
+const MAX_IDLE_HOURS = 12;
 const IDLE_CAP_HOURS = MAX_IDLE_HOURS;
 
 type PlayerWithRelations = Player & {
@@ -110,6 +110,7 @@ export class PlayersService {
           voidCrystals: player.currencies.voidCrystals,
           resonanceCores: player.currencies.resonanceCores,
           forgeDust: player.currencies.forgeDust,
+          enchantStones: player.currencies.enchantStones,
           echoShards: player.currencies.echoShards,
           arenaMarks: player.currencies.arenaMarks,
           bossSeals: player.currencies.bossSeals,
@@ -119,6 +120,7 @@ export class PlayersService {
           voidCrystals: 0,
           resonanceCores: 150,
           forgeDust: 0,
+          enchantStones: 0,
           echoShards: 0,
           arenaMarks: 0,
           bossSeals: 0,
@@ -150,15 +152,16 @@ export class PlayersService {
   async claimOfflineReward(playerId: string): Promise<ClaimOfflineRewardResponseDto> {
     const player = await this.prisma.player.findUnique({
       where: { id: playerId },
-      include: { currencies: true },
+      include: { currencies: true, stageProgress: true },
     });
     if (!player) throw new NotFoundException('Player not found');
 
-    const { goldEarned, idleHours, multiplier } = this.computeOfflineReward(player);
+    const { goldEarned, expEarned, idleHours, multiplier } = this.computeOfflineReward(player);
 
-    if (goldEarned === 0) {
+    if (goldEarned === 0 && expEarned === 0) {
       return {
         goldEarned: 0,
+        expEarned: 0,
         idleHours: 0,
         newGoldBalance: player.currencies ? Number(player.currencies.goldShards) : 500,
       };
@@ -171,7 +174,10 @@ export class PlayersService {
       }),
       this.prisma.player.update({
         where: { id: playerId },
-        data: { lastHeartbeat: new Date() },
+        data: {
+          lastHeartbeat: new Date(),
+          experience: { increment: expEarned },
+        },
       }),
       this.prisma.offlineRewardLog.create({
         data: { playerId, idleHours, goldEarned, multiplier },
@@ -180,6 +186,7 @@ export class PlayersService {
 
     return {
       goldEarned,
+      expEarned,
       idleHours,
       newGoldBalance: Number(updatedCurrencies.goldShards),
     };
@@ -193,20 +200,26 @@ export class PlayersService {
     return { ok: true, serverTime: new Date().toISOString() };
   }
 
-  private computeOfflineReward(player: Player): OfflineRewardPreviewDto {
+  private computeOfflineReward(player: Player & { stageProgress?: { highestZone: number } | null }): OfflineRewardPreviewDto {
     const now = Date.now();
     const lastSeen = player.lastHeartbeat.getTime();
     const elapsedMs = Math.max(0, now - lastSeen);
     const elapsedHours = Math.min(elapsedMs / 3_600_000, IDLE_CAP_HOURS);
 
-    // Base farm rate: 500 × level^1.4 gold per hour
-    const baseRate = 500 * Math.pow(player.level, 1.4);
-    const multiplier = 1.0; // VIP/gear multipliers added in Batch E+
-    const goldEarned = Math.floor(baseRate * multiplier * elapsedHours);
+    const zone = player.stageProgress?.highestZone ?? 1;
+    // Base farm rate: (500 + 100×zone) × level^1.4 gold per hour
+    const baseGoldRate = (500 + zone * 100) * Math.pow(player.level, 1.4);
+    // EXP rate: (200 + 80×zone) × level^1.2 per hour
+    const baseExpRate = (200 + zone * 80) * Math.pow(player.level, 1.2);
+
+    const multiplier = 1.0; // VIP/gear multipliers added later
+    const goldEarned = Math.floor(baseGoldRate * multiplier * elapsedHours);
+    const expEarned = Math.floor(baseExpRate * multiplier * elapsedHours);
 
     return {
       idleHours: Math.round(elapsedHours * 100) / 100,
       goldEarned,
+      expEarned,
       multiplier,
       cappedAt: IDLE_CAP_HOURS,
     };

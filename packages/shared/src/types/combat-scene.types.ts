@@ -15,6 +15,7 @@ export interface EnemyTypeDto {
   goldReward: number;
   expReward: number;
   dropChance: number;
+  icon?: string;
 }
 
 // ── Spawn points ─────────────────────────────────────────────────────────────
@@ -44,6 +45,7 @@ export interface ZoneDefinitionDto {
   bossName: string;
   bossIcon: string;
   bossMaxHp: number;
+  bossAtk: number;
   spawnPoints: SpawnPointDto[];
 }
 
@@ -96,9 +98,16 @@ export interface KillEnemyResponseDto {
 
 // ── Zone clear ───────────────────────────────────────────────────────────────
 
+export interface BossRewardsDto {
+  goldBonus: number;
+  expBonus: number;
+  diamonds: number;
+  drop: { dropped: boolean; itemName: string | null; rarity: string | null };
+}
+
 export interface ZoneClearResponseDto {
   clearedZone: number;
   newZone: number;
   newZoneName: string;
-  rewards: { goldBonus: number };
+  rewards: BossRewardsDto;
 }

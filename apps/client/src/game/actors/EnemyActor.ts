@@ -30,6 +30,7 @@ export class EnemyActor extends Container {
   readonly color: number;
   readonly accent: number;
   protected readonly size: number;
+  public readonly icon?: string;
 
   constructor(type: EnemyTypeDto, spawnRefX: number, spawnRefY: number) {
     super();
@@ -46,6 +47,7 @@ export class EnemyActor extends Container {
     this.expReward  = type.expReward;
     this.baseAtk    = type.baseAtk;
     this.size    = type.size;
+    this.icon    = type.icon;
 
     this.alpha   = 0;
 
@@ -121,6 +123,31 @@ export class EnemyActor extends Container {
   protected _drawBoss(g: Graphics, c: number, a: number, s: number): void {
     // Shadow
     g.ellipse(0, s * 0.72, s * 0.85, s * 0.2); g.fill({ color: 0x000000, alpha: 0.55 });
+    
+    // Main body: if there is an icon, draw a dark halo under the icon
+    if (this.icon) {
+      g.circle(0, -s * 0.1, s * 0.9);
+      g.fill({ color: c });
+      g.stroke({ width: 2, color: a, alpha: 0.6 });
+
+      // Pulsing energy core behind icon
+      g.circle(0, -s * 0.1, s * 0.4);
+      g.fill({ color: a, alpha: 0.2 });
+
+      // Large Icon Text
+      const iconLabel = new Text({
+        text: this.icon,
+        style: new TextStyle({
+          fontSize: s * 1.2,
+          dropShadow: { alpha: 0.5, blur: 4, distance: 0, color: '#000' },
+        })
+      });
+      iconLabel.anchor.set(0.5);
+      iconLabel.position.set(0, -s * 0.1);
+      this.body.addChild(iconLabel);
+      return;
+    }
+
     // Void cloak (wide trapezoidal)
     g.poly([-(s * 0.65), -(s * 0.8), s * 0.65, -(s * 0.8), s * 0.88, s * 0.72, -(s * 0.88), s * 0.72]);
     g.fill({ color: c });

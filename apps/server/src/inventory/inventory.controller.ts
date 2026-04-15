@@ -1,6 +1,13 @@
 import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { CurrentPlayer } from '../common/decorators/current-player.decorator';
-import type { EquipResponseDto, InventoryItemDto, UnequipResponseDto, TokenPayload } from '@riftborn/shared';
+import type {
+  EquipResponseDto,
+  InventoryItemDto,
+  UnequipResponseDto,
+  SalvageResponseDto,
+  EnchantItemResponseDto,
+  TokenPayload,
+} from '@riftborn/shared';
 import { PlayersService } from '../players/players.service';
 import { InventoryService } from './inventory.service';
 
@@ -35,5 +42,35 @@ export class InventoryController {
   ): Promise<UnequipResponseDto> {
     const player = await this.playersService.findByAccountId(payload.sub);
     return this.inventoryService.unequip(player.id, itemId);
+  }
+
+  @Post('salvage/:itemId')
+  @HttpCode(HttpStatus.OK)
+  async salvage(
+    @CurrentPlayer() payload: TokenPayload,
+    @Param('itemId') itemId: string,
+  ): Promise<SalvageResponseDto> {
+    const player = await this.playersService.findByAccountId(payload.sub);
+    return this.inventoryService.salvageItem(player.id, itemId);
+  }
+
+  @Post('lock/:itemId')
+  @HttpCode(HttpStatus.OK)
+  async toggleLock(
+    @CurrentPlayer() payload: TokenPayload,
+    @Param('itemId') itemId: string,
+  ): Promise<InventoryItemDto> {
+    const player = await this.playersService.findByAccountId(payload.sub);
+    return this.inventoryService.toggleLock(player.id, itemId);
+  }
+
+  @Post('enchant/:itemId')
+  @HttpCode(HttpStatus.OK)
+  async enchant(
+    @CurrentPlayer() payload: TokenPayload,
+    @Param('itemId') itemId: string,
+  ): Promise<EnchantItemResponseDto> {
+    const player = await this.playersService.findByAccountId(payload.sub);
+    return this.inventoryService.enchantItem(player.id, itemId);
   }
 }

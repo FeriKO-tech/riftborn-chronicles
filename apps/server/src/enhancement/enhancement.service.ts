@@ -99,7 +99,9 @@ export class EnhancementService {
     );
 
     // Track quest (non-critical)
-    this.quests.trackSingleEvent(playerId, QuestType.ENHANCE_ITEM).catch(() => undefined);
+    this.quests.trackSingleEvent(playerId, QuestType.ENHANCE_ITEM).catch((err) => {
+      console.error('[EnhancementService] trackSingleEvent failed:', err);
+    });
 
     return {
       itemId,

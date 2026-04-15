@@ -134,9 +134,10 @@ export default function InventoryPanel({ onClose }: Props) {
     }
   };
 
-  const totalAtk = items.filter((i) => i.isEquipped).reduce((s, i) => s + i.atkBonus, 0);
-  const totalDef = items.filter((i) => i.isEquipped).reduce((s, i) => s + i.defBonus, 0);
-  const totalHp = items.filter((i) => i.isEquipped).reduce((s, i) => s + i.hpBonus, 0);
+  const enhMult = (lvl: number) => 1 + lvl * 0.05;
+  const totalAtk = items.filter((i) => i.isEquipped).reduce((s, i) => s + Math.floor(i.atkBonus * enhMult(i.enhancementLevel)), 0);
+  const totalDef = items.filter((i) => i.isEquipped).reduce((s, i) => s + Math.floor(i.defBonus * enhMult(i.enhancementLevel)), 0);
+  const totalHp = items.filter((i) => i.isEquipped).reduce((s, i) => s + Math.floor(i.hpBonus * enhMult(i.enhancementLevel)), 0);
 
   return (
     <div style={overlay} onClick={onClose}>
@@ -175,9 +176,10 @@ export default function InventoryPanel({ onClose }: Props) {
               </div>
               <div style={{ fontSize: '10px', color: '#6b7280' }}>
                 {item.slot} · Lv{item.itemLevel} ·
-                {item.atkBonus > 0 && ` +${item.atkBonus} ATK`}
-                {item.defBonus > 0 && ` +${item.defBonus} DEF`}
-                {item.hpBonus > 0 && ` +${item.hpBonus} HP`}
+                {item.atkBonus > 0 && ` +${Math.floor(item.atkBonus * enhMult(item.enhancementLevel))} ATK`}
+                {item.defBonus > 0 && ` +${Math.floor(item.defBonus * enhMult(item.enhancementLevel))} DEF`}
+                {item.hpBonus > 0 && ` +${Math.floor(item.hpBonus * enhMult(item.enhancementLevel))} HP`}
+                {item.enhancementLevel > 0 && <span style={{ color: '#f59e0b' }}> +{item.enhancementLevel}</span>}
               </div>
             </div>
             <button

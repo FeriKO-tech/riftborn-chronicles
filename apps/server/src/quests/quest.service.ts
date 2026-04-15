@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { QuestPeriod, QuestType } from '@riftborn/shared';
@@ -23,6 +24,8 @@ export interface BattleQuestEvent {
 
 @Injectable()
 export class QuestService {
+  private readonly logger = new Logger(QuestService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -127,6 +130,7 @@ export class QuestService {
   }
 
   async trackSingleEvent(playerId: string, type: QuestType): Promise<void> {
+    this.logger.log(`trackSingleEvent player=${playerId} type=${type}`);
     const dailyKey = this.dailyKey();
     const weeklyKey = this.weeklyKey();
 
@@ -136,14 +140,18 @@ export class QuestService {
       where: { playerId, periodKey: { in: [dailyKey, weeklyKey] }, claimed: false },
     });
 
+    this.logger.log(`trackSingleEvent found ${quests.length} unclaimed quests for keys [${dailyKey}, ${weeklyKey}]`);
+
     const toUpdate: string[] = [];
     for (const quest of quests) {
       const template = QUEST_TEMPLATES.get(quest.templateId);
+      this.logger.debug(`  quest ${quest.templateId} template.type=${template?.type} vs ${type}, progress=${quest.progress}/${quest.targetValue}`);
       if (template?.type === type && quest.progress < quest.targetValue) {
         toUpdate.push(quest.id);
       }
     }
 
+    this.logger.log(`trackSingleEvent updating ${toUpdate.length} quests`);
     if (toUpdate.length === 0) return;
 
     await this.prisma.$transaction(

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { BossConfigDto, BossFightResponseDto } from '@riftborn/shared';
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import type { BossConfigDto } from '@riftborn/shared';
 import { bossApi } from '../api/boss.api';
-import { notify } from '../store/notification.store';
-import { PLAYER_STATE_KEY } from '../hooks/usePlayerQuery';
 
-interface Props { onClose: () => void; }
+interface Props {
+  onClose: () => void;
+  onStartFight: (boss: BossConfigDto) => void;
+}
 
 const overlay: React.CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
@@ -17,39 +18,11 @@ const panel: React.CSSProperties = {
   padding: 28, width: 480, maxHeight: '80vh', overflowY: 'auto', color: '#e8e0ff',
 };
 
-export default function BossPanel({ onClose }: Props) {
-  const qc = useQueryClient();
-  const [fighting, setFighting] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<BossFightResponseDto | null>(null);
-  const [lastBossName, setLastBossName] = useState('');
-
-  const { data: state, isLoading, refetch } = useQuery({
+export default function BossPanel({ onClose, onStartFight }: Props) {
+  const { data: state, isLoading } = useQuery({
     queryKey: ['boss-state'],
     queryFn: bossApi.getState,
   });
-
-  const handleFight = async (boss: BossConfigDto) => {
-    if (fighting) return;
-    setFighting(boss.id);
-    setLastResult(null);
-    try {
-      const result = await bossApi.fight(boss.id);
-      setLastResult(result);
-      setLastBossName(boss.name);
-      if (result.victory) {
-        const r = result.rewards!;
-        notify.success(`⚔️ Defeated ${boss.name}! +${r.goldShards.toLocaleString()} gold · +${r.voidCrystals} crystals`);
-        void qc.invalidateQueries({ queryKey: PLAYER_STATE_KEY });
-      } else {
-        notify.info(`💀 Defeated by ${boss.name} — try again!`);
-      }
-      void refetch();
-    } catch (err: unknown) {
-      notify.error(err instanceof Error ? err.message : 'Fight failed');
-    } finally {
-      setFighting(null);
-    }
-  };
 
   return (
     <div style={overlay} onClick={onClose}>
@@ -58,30 +31,6 @@ export default function BossPanel({ onClose }: Props) {
           <span style={{ fontSize: 18, fontWeight: 700, color: '#ef4444' }}>☠️ Boss Challenge</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 20, cursor: 'pointer' }}>✕</button>
         </div>
-
-        {/* Last result */}
-        {lastResult && (
-          <div style={{
-            background: lastResult.victory ? 'rgba(74,222,128,0.08)' : 'rgba(239,68,68,0.08)',
-            border: `1px solid ${lastResult.victory ? 'rgba(74,222,128,0.3)' : 'rgba(239,68,68,0.3)'}`,
-            borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 13,
-          }}>
-            <div style={{ fontWeight: 700, color: lastResult.victory ? '#4ade80' : '#ef4444', marginBottom: 6 }}>
-              {lastResult.victory ? `✅ Victory vs ${lastBossName}` : `💀 Defeated by ${lastBossName}`}
-            </div>
-            <div style={{ color: '#9ca3af' }}>
-              {lastResult.rounds} rounds · {lastResult.totalDamageDealt.toLocaleString()} dmg dealt
-            </div>
-            {lastResult.rewards && (
-              <div style={{ marginTop: 6, display: 'flex', gap: 16, color: '#f59e0b', flexWrap: 'wrap' }}>
-                <span>💰 {lastResult.rewards.goldShards.toLocaleString()}</span>
-                <span>💎 {lastResult.rewards.voidCrystals}</span>
-                <span>🔮 {lastResult.rewards.resonanceCores}</span>
-                <span>⭐ +{lastResult.rewards.expEarned} XP</span>
-              </div>
-            )}
-          </div>
-        )}
 
         {isLoading ? (
           <div style={{ textAlign: 'center', color: '#6b7280', padding: 30 }}>Loading bosses…</div>
@@ -123,8 +72,8 @@ export default function BossPanel({ onClose }: Props) {
                   </div>
 
                   <button
-                    onClick={() => handleFight(boss)}
-                    disabled={!canFight || fighting === boss.id}
+                    onClick={() => { onClose(); onStartFight(boss); }}
+                    disabled={!canFight}
                     style={{
                       width: '100%', padding: '10px 0', borderRadius: 8, border: 'none',
                       background: !canFight ? 'rgba(255,255,255,0.04)' : 'linear-gradient(90deg, #dc2626, #991b1b)',
@@ -132,7 +81,7 @@ export default function BossPanel({ onClose }: Props) {
                       fontWeight: 700, cursor: !canFight ? 'not-allowed' : 'pointer', fontSize: 14,
                     }}
                   >
-                    {fighting === boss.id ? 'Fighting…' : !canFight ? 'No Attempts Left' : '⚔️ Challenge'}
+                    {!canFight ? 'No Attempts Left' : '⚔️ Challenge'}
                   </button>
                 </div>
               );

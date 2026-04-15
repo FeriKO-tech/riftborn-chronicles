@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ShopService } from './shop.service';
 import { PrismaService } from '../database/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { CompanionsService } from '../companions/companions.service';
 import { SHOP_CATALOG } from './data/shop-catalog.data';
 
 // ── Mocks ───────────────────────────────────────────────────────────────────
@@ -25,6 +26,10 @@ const mockInventory = {
   grantItem: jest.fn(),
 };
 
+const mockCompanions = {
+  grantCompanion: jest.fn(),
+};
+
 // ── Stubs ────────────────────────────────────────────────────────────────────
 
 const PLAYER_ID = 'player-uuid-1';
@@ -36,6 +41,7 @@ const richCurrencies = {
   forgeDust: 0,
   echoShards: 0,
   bossSeals: 0,
+  enchantStones: 0,
 };
 
 const brokeCurrencies = {
@@ -44,6 +50,7 @@ const brokeCurrencies = {
   forgeDust: 0,
   echoShards: 0,
   bossSeals: 0,
+  enchantStones: 0,
 };
 
 // ── Suite ────────────────────────────────────────────────────────────────────
@@ -57,6 +64,7 @@ describe('ShopService', () => {
         ShopService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: InventoryService, useValue: mockInventory },
+        { provide: CompanionsService, useValue: mockCompanions },
       ],
     }).compile();
 

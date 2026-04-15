@@ -4,7 +4,7 @@ import BattleHUD from '../components/BattleHUD';
 import { useAuthStore } from '../store/auth.store';
 import { usePlayerStore } from '../store/player.store';
 import { dailyRewardApi } from '../api/daily-reward.api';
-import { usePlayerState, useOfflineRewardPreview, useClaimOfflineReward } from '../hooks/usePlayerQuery';
+import { usePlayerState, useOfflineRewardPreview, useClaimOfflineReward, PLAYER_STATE_KEY } from '../hooks/usePlayerQuery';
 import { useStageProgress } from '../hooks/useStageQuery';
 import type { DailyRewardStatusDto } from '@riftborn/shared';
 import { useSocketEvent } from '../providers/SocketProvider';
@@ -20,6 +20,10 @@ import StagesPanel from '../components/StagesPanel';
 import BossPanel from '../components/BossPanel';
 import PvpPanel from '../components/PvpPanel';
 import ShopPanel from '../components/ShopPanel';
+import LeaderboardPanel from '../components/LeaderboardPanel';
+import SkillBar from '../components/SkillBar';
+import SkillsPanel from '../components/SkillsPanel';
+import AchievementsPanel from '../components/AchievementsPanel';
 
 // ── Sub-panel styles (left / right sidebars) ──────────────────────────────────
 
@@ -167,6 +171,9 @@ export default function GamePage() {
   const [showQuests, setShowQuests] = useState(false);
   const [showStages, setShowStages] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showSkills, setShowSkills] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
   const [showOfflineReward, setShowOfflineReward] = useState(false);
   const [dailyStatus, setDailyStatus] = useState<DailyRewardStatusDto | null>(null);
   const [showDailyReward, setShowDailyReward] = useState(false);
@@ -217,6 +224,9 @@ export default function GamePage() {
     if (id === 'quests') setShowQuests(true);
     if (id === 'stages') setShowStages(true);
     if (id === 'shop') setShowShop(true);
+    if (id === 'leaderboard') setShowLeaderboard(true);
+    if (id === 'skills') setShowSkills(true);
+    if (id === 'achievements') setShowAchievements(true);
   };
 
   return (
@@ -254,6 +264,7 @@ export default function GamePage() {
               heroHpPercent={combatScene.heroHpPercent}
               onBossClick={combatScene.triggerBoss}
             />
+            <SkillBar onUseSkill={combatScene.useSkill} />
           </div>
         }
         right={
@@ -294,11 +305,14 @@ export default function GamePage() {
       )}
 
       {showHero && <HeroPanel onClose={() => { setShowHero(false); setActiveTab('battle'); }} />}
-      {showBoss && <BossPanel onClose={() => { setShowBoss(false); setActiveTab('battle'); }} />}
+      {showBoss && <BossPanel onClose={() => { setShowBoss(false); setActiveTab('battle'); }} onStartFight={combatScene.triggerChallengeBoss} />}
       {showPvp && <PvpPanel onClose={() => { setShowPvp(false); setActiveTab('battle'); }} />}
       {showQuests && <QuestsPanel onClose={() => { setShowQuests(false); setActiveTab('battle'); }} />}
       {showStages && <StagesPanel onClose={() => { setShowStages(false); setActiveTab('battle'); }} />}
       {showShop && <ShopPanel onClose={() => { setShowShop(false); setActiveTab('battle'); }} />}
+      {showLeaderboard && <LeaderboardPanel onClose={() => { setShowLeaderboard(false); setActiveTab('battle'); }} />}
+      {showSkills && <SkillsPanel onClose={() => { setShowSkills(false); setActiveTab('battle'); }} />}
+      {showAchievements && <AchievementsPanel onClose={() => { setShowAchievements(false); setActiveTab('battle'); }} />}
     </>
   );
 }

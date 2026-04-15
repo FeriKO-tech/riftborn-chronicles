@@ -38,6 +38,7 @@ export interface InventoryItemDto {
   defBonus: number;
   hpBonus: number;
   enhancementLevel: number;
+  isLocked: boolean;
   obtainedAt: string;
 }
 
@@ -61,4 +62,16 @@ export interface EquipmentBonusDto {
   atkBonus: number;
   defBonus: number;
   hpBonus: number;
+}
+
+export interface SalvageResponseDto {
+  goldGained: number;
+  stonesGained: number;
+  deletedItemId: string;
+}
+
+export interface EnchantItemResponseDto {
+  item: InventoryItemDto;
+  stonesCost: number;
+  newPowerScore: number;
 }

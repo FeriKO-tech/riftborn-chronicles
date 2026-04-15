@@ -3,7 +3,6 @@ import { CurrentPlayer } from '../common/decorators/current-player.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import type {
   BattleResultDto,
-  KillEnemyRequestDto,
   KillEnemyResponseDto,
   StageProgressResponseDto,
   ZoneClearResponseDto,
@@ -15,6 +14,7 @@ import type { TokenPayload } from '@riftborn/shared';
 import { PlayersService } from '../players/players.service';
 import { StagesService } from './stages.service';
 import { CombatSceneService } from './combat-scene.service';
+import { KillEnemyDto } from '../common/dto/kill-enemy.dto';
 
 @Controller('stages')
 export class StagesController {
@@ -71,7 +71,7 @@ export class StagesController {
   @HttpCode(HttpStatus.OK)
   async killEnemy(
     @CurrentPlayer() payload: TokenPayload,
-    @Body() dto: KillEnemyRequestDto,
+    @Body() dto: KillEnemyDto,
   ): Promise<KillEnemyResponseDto> {
     const player = await this.playersService.findByAccountId(payload.sub);
     return this.combatScene.killEnemy(player.id, dto);

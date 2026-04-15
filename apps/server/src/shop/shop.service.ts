@@ -16,6 +16,7 @@ import type {
 import { ItemRarity } from '@riftborn/shared';
 import { PrismaService } from '../database/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { CompanionsService } from '../companions/companions.service';
 import { ITEM_TEMPLATE_LIST } from '../inventory/data/items.data';
 import {
   FREE_PACK_OFFER_ID,
@@ -47,6 +48,7 @@ export class ShopService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
+    private readonly companions: CompanionsService,
   ) {}
 
   // ── Catalog ────────────────────────────────────────────────────────────────
@@ -236,6 +238,7 @@ export class ShopService {
   ): Promise<void> {
     const currencyDelta: Record<string, number | bigint> = {};
     const itemTemplates: string[] = [];
+    const companionTemplates: string[] = [];
 
     for (const r of rewards) {
       switch (r.kind) {
@@ -259,6 +262,13 @@ export class ShopService {
           currencyDelta['bossSeals'] =
             (Number(currencyDelta['bossSeals'] ?? 0)) + (r.amount ?? 0);
           break;
+        case 'enchantStones':
+          currencyDelta['enchantStones'] =
+            (Number(currencyDelta['enchantStones'] ?? 0)) + (r.amount ?? 0);
+          break;
+        case 'companion':
+          if (r.templateId) companionTemplates.push(r.templateId);
+          break;
         case 'item':
           if (r.templateId) itemTemplates.push(r.templateId);
           break;
@@ -276,6 +286,8 @@ export class ShopService {
       updateData['echoShards'] = { increment: currencyDelta['echoShards'] };
     if (currencyDelta['bossSeals'])
       updateData['bossSeals'] = { increment: currencyDelta['bossSeals'] };
+    if (currencyDelta['enchantStones'])
+      updateData['enchantStones'] = { increment: currencyDelta['enchantStones'] };
 
     if (Object.keys(updateData).length > 0) {
       await this.prisma.playerCurrencies.update({
@@ -286,6 +298,10 @@ export class ShopService {
 
     for (const templateId of itemTemplates) {
       await this.inventory.grantItem(playerId, templateId);
+    }
+
+    for (const templateId of companionTemplates) {
+      await this.companions.grantCompanion(playerId, templateId);
     }
   }
 }

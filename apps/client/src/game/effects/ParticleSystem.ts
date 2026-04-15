@@ -8,6 +8,7 @@ interface Particle {
   maxLife: number;
   color: number;
   size: number;
+  noGravity?: boolean;
 }
 
 const GRAVITY = 220; // px/s² in canvas space
@@ -67,6 +68,31 @@ export class ParticleSystem {
     }
   }
 
+  emitRespawnBurst(x: number, y: number, accent: number): void {
+    const ring = [0x4ade80, accent, 0xffffff, accent];
+    for (let i = 0; i < 18; i++) {
+      const angle = (Math.PI * 2 * i) / 18;
+      const speed = 70 + Math.random() * 80;
+      const col = ring[i % ring.length];
+      this._add(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed - 40,
+        0.4 + Math.random() * 0.3, col, 2.5 + Math.random() * 3.5);
+    }
+  }
+
+  emitGhostRise(x: number, y: number, color: number): void {
+    for (let i = 0; i < 6; i++) {
+      this._addNoGravity(
+        x + (Math.random() - 0.5) * 16,
+        y + (Math.random() - 0.5) * 8,
+        (Math.random() - 0.5) * 8,
+        -(30 + Math.random() * 40),
+        0.5 + Math.random() * 0.3,
+        color,
+        4 + Math.random() * 4,
+      );
+    }
+  }
+
   // ── Update ───────────────────────────────────────────────────────────────────
 
   update(deltaMs: number): void {
@@ -78,7 +104,7 @@ export class ParticleSystem {
       p.life -= dt;
       if (p.life <= 0) { dead.push(i); continue; }
 
-      p.vy += GRAVITY * dt;
+      if (!p.noGravity) p.vy += GRAVITY * dt;
       p.x  += p.vx * dt;
       p.y  += p.vy * dt;
 
@@ -105,6 +131,13 @@ export class ParticleSystem {
     const g = new Graphics();
     this.layer.addChild(g);
     this.particles.push({ g, x, y, vx, vy, life, maxLife: life, color, size });
+  }
+
+  private _addNoGravity(x: number, y: number, vx: number, vy: number,
+    life: number, color: number, size: number): void {
+    const g = new Graphics();
+    this.layer.addChild(g);
+    this.particles.push({ g, x, y, vx, vy, life, maxLife: life, color, size, noGravity: true });
   }
 
   destroy(): void {

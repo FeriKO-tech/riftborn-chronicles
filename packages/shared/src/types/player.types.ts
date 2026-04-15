@@ -20,6 +20,7 @@ export interface PlayerCurrenciesDto {
   voidCrystals: number;
   resonanceCores: number;
   forgeDust: number;
+  enchantStones: number;
   echoShards: number;
   arenaMarks: number;
   bossSeals: number;
@@ -40,12 +41,14 @@ export interface PlayerStateDto {
 export interface OfflineRewardPreviewDto {
   idleHours: number;
   goldEarned: number;
+  expEarned: number;
   multiplier: number;
   cappedAt: number;
 }
 
 export interface ClaimOfflineRewardResponseDto {
   goldEarned: number;
+  expEarned: number;
   idleHours: number;
   newGoldBalance: number;
 }

@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { Application } from 'pixi.js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { BossConfigDto } from '@riftborn/shared';
 import { combatSceneApi } from '../api/combat-scene.api';
+import { bossApi } from '../api/boss.api';
 import { CombatScene } from '../game/scene/CombatScene';
 import { notify } from '../store/notification.store';
 import { PLAYER_STATE_KEY } from './usePlayerQuery';
@@ -21,6 +23,8 @@ export interface CombatSceneState {
   autoBoss: boolean;
   toggleAutoBoss: () => void;
   triggerBoss: () => void;
+  triggerChallengeBoss: (boss: BossConfigDto) => void;
+  useSkill: (skillId: string, dmgMult: number, cooldownMs: number) => void;
 }
 
 export function useCombatScene(
@@ -120,6 +124,95 @@ export function useCombatScene(
           onEnemyKilled: (typeId) => {
             killMutation.mutate({ zone: zoneRef.current, enemyTypeId: typeId });
           },
+          onBossDefeated: () => {
+            // Boss died in real combat — claim rewards from server
+            void bossMutation.mutateAsync(zoneRef.current).then((data) => {
+              setBossActive(false);
+              if (data.victory && data.result) {
+                setZoneCleared(true);
+                const r = data.result.rewards;
+                notify.loot(
+                  `⚔️ Zone cleared! +${r.goldBonus.toLocaleString()} 🟡  +${r.expBonus.toLocaleString()} ✨  +${r.diamonds} 💎` +
+                  (r.drop.dropped ? `  📦 ${r.drop.rarity} ${r.drop.itemName}` : '') +
+                  `  → ${data.result.newZoneName}`,
+                );
+                // Spawn loot after a short delay for death animation
+                if (r.drop.dropped && sceneRef.current) {
+                  setTimeout(() => {
+                    sceneRef.current?.spawnLootDrop(r.drop.itemName ?? 'Item', r.drop.rarity ?? 'COMMON');
+                  }, 1200);
+                }
+                void qc.invalidateQueries({ queryKey: PLAYER_STATE_KEY });
+                void qc.invalidateQueries({ queryKey: STAGE_PROGRESS_KEY });
+                void qc.invalidateQueries({ queryKey: ['inventory'] });
+                // Reset zone after loot pickup time
+                setTimeout(() => {
+                  void combatSceneApi.getSceneConfig().then((fresh) => {
+                    if (!sceneRef.current) return;
+                    sceneRef.current.resetZone(fresh.definition);
+                    zoneRef.current = fresh.combatState.zone;
+                    setKills(fresh.combatState.kills);
+                    setRequiredKills(fresh.combatState.requiredKills);
+                    setBossUnlocked(fresh.combatState.bossUnlocked);
+                    setZoneName(fresh.definition.name);
+                    setBossName(fresh.definition.bossName);
+                    setZoneCleared(false);
+                    bossBusyRef.current = false;
+                  });
+                }, 5000);
+              }
+            }).catch(() => {
+              setBossActive(false);
+              bossBusyRef.current = false;
+              sceneRef.current?.resetBossState();
+            });
+          },
+          onBossLost: () => {
+            // Hero lost — stay on zone, keep farming
+            setBossActive(false);
+            bossBusyRef.current = false;
+            notify.error('The boss overpowered you. Grow stronger!');
+            // Auto-boss retry after 3s if enabled
+            if (autoBossRef.current) {
+              setTimeout(() => {
+                if (autoBossRef.current && !bossBusyRef.current && sceneRef.current) {
+                  bossBusyRef.current = true;
+                  setBossActive(true);
+                  sceneRef.current.spawnBoss();
+                }
+              }, 3000);
+            }
+          },
+          onChallengeBossDefeated: (bossId: string) => {
+            void bossApi.fight(bossId).then((data) => {
+              setBossActive(false);
+              bossBusyRef.current = false;
+              if (data.victory && data.rewards) {
+                const r = data.rewards;
+                notify.success(`🎉 Victory! +${r.goldShards.toLocaleString()} 🟡  +${r.voidCrystals} 💎  +${r.expEarned} ✨`);
+                void qc.invalidateQueries({ queryKey: PLAYER_STATE_KEY });
+                void qc.invalidateQueries({ queryKey: ['boss-state'] });
+              }
+              // Return to normal combat
+              setTimeout(() => {
+                sceneRef.current?.resetBossState();
+                combatSceneApi.getSceneConfig().then((fresh) => setBossName(fresh.definition.bossName)).catch(() => undefined);
+              }, 3000);
+            });
+          },
+          onChallengeBossLost: (bossId: string) => {
+            void bossApi.fight(bossId).then((data) => {
+              setBossActive(false);
+              bossBusyRef.current = false;
+              notify.error(`💀 Defeated. Boss hit for ${data.totalDamageDealt.toLocaleString()} dmg.`);
+              void qc.invalidateQueries({ queryKey: ['boss-state'] });
+              // Return to normal combat
+              setTimeout(() => {
+                sceneRef.current?.resetBossState();
+                combatSceneApi.getSceneConfig().then((fresh) => setBossName(fresh.definition.bossName)).catch(() => undefined);
+              }, 3000);
+            });
+          },
         },
       );
 
@@ -175,46 +268,10 @@ export function useCombatScene(
     if (!sceneRef.current || !bossUnlocked || bossBusyRef.current) return;
     bossBusyRef.current = true;
     setBossActive(true);
+    // Just spawn — real fight happens in CombatScene.
+    // Callbacks (onBossDefeated / onBossLost) handle the rest.
     sceneRef.current.spawnBoss();
-
-    void bossMutation
-      .mutateAsync(zoneRef.current)
-      .then((data) => {
-        sceneRef.current?.resolveBoss(data.victory);
-        setBossActive(false);
-
-        if (data.victory && data.result) {
-          setZoneCleared(true);
-          notify.loot(`⚔️ Zone cleared! +${data.result.rewards.goldBonus.toLocaleString()} 🟡 → ${data.result.newZoneName}`);
-          // Refresh player state + stage progress so HUD gold/level and left panel update
-          void qc.invalidateQueries({ queryKey: PLAYER_STATE_KEY });
-          void qc.invalidateQueries({ queryKey: STAGE_PROGRESS_KEY });
-
-          setTimeout(() => {
-            void combatSceneApi.getSceneConfig().then((fresh) => {
-              if (!sceneRef.current) return;
-              sceneRef.current.resetZone(fresh.definition);
-              zoneRef.current = fresh.combatState.zone;
-              setKills(fresh.combatState.kills);
-              setRequiredKills(fresh.combatState.requiredKills);
-              setBossUnlocked(fresh.combatState.bossUnlocked);
-              setZoneName(fresh.definition.name);
-              setBossName(fresh.definition.bossName);
-              setZoneCleared(false);
-              bossBusyRef.current = false;
-            });
-          }, 2600);
-        } else {
-          notify.error('The boss overpowered you. Grow stronger.');
-          bossBusyRef.current = false;
-        }
-      })
-      .catch(() => {
-        sceneRef.current?.resolveBoss(false);
-        setBossActive(false);
-        bossBusyRef.current = false;
-      });
-  }, [bossUnlocked, bossMutation]);
+  }, [bossUnlocked]);
 
   // ── Auto-boss: when bossUnlocked flips to true and autoBoss is on ─────────
   useEffect(() => {
@@ -224,6 +281,18 @@ export function useCombatScene(
   }, [bossUnlocked, triggerBoss]);
 
   const toggleAutoBoss = useCallback(() => setAutoBoss((v) => !v), []);
+
+  const triggerChallengeBoss = useCallback((boss: BossConfigDto) => {
+    if (bossBusyRef.current || !sceneRef.current) return;
+    bossBusyRef.current = true;
+    setBossActive(true);
+    setBossName(boss.name); // temporarily override boss name for HUD
+    sceneRef.current.spawnChallengeBoss(boss);
+  }, []);
+
+  const useSkill = useCallback((skillId: string, dmgMult: number, cooldownMs: number) => {
+    sceneRef.current?.useSkill(dmgMult);
+  }, []);
 
   return {
     kills,
@@ -238,5 +307,7 @@ export function useCombatScene(
     autoBoss,
     toggleAutoBoss,
     triggerBoss,
+    triggerChallengeBoss,
+    useSkill,
   };
 }

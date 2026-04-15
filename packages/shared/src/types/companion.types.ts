@@ -20,7 +20,9 @@ export interface PlayerCompanionDto {
   name: string;
   icon: string;
   rarity: string;
+  level: number;
   bonus: CompanionBonusDto;
+  upgradeCost: number;
   isActive: boolean;
   obtainedAt: string;
 }
@@ -34,4 +36,10 @@ export interface ActivateCompanionResponseDto {
 export interface CompanionStateDto {
   owned: PlayerCompanionDto[];
   activeCompanionId: string | null;
+}
+
+export interface CompanionUpgradeResponseDto {
+  companion: PlayerCompanionDto;
+  goldCost: number;
+  newPowerScore: number;
 }

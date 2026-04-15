@@ -66,30 +66,32 @@ describe('PlayersService', () => {
     it('calculates correct gold for exactly 1 hour idle at level 1', async () => {
       mockPrisma.player.findUnique.mockResolvedValue(makePlayer(1, 1));
       const result = await service.getOfflineRewardPreview('player-1');
-      // formula: floor(500 * 1^1.4 * 1.0 * 1h) = 500
-      expect(result.goldEarned).toBe(500);
+      // formula: floor((500 + 100*1) * 1^1.4 * 1.0 * 1h) = 600
+      expect(result.goldEarned).toBe(600);
       expect(result.multiplier).toBe(1.0);
+      expect(result.expEarned).toBeGreaterThan(0);
     });
 
     it('calculates correct gold for 2 hours idle at level 1', async () => {
       mockPrisma.player.findUnique.mockResolvedValue(makePlayer(2, 1));
       const result = await service.getOfflineRewardPreview('player-1');
-      // floor(500 * 1 * 1.0 * 2) = 1000
-      expect(result.goldEarned).toBe(1000);
+      // floor((500+100) * 1 * 1.0 * 2) = 1200
+      expect(result.goldEarned).toBe(1200);
     });
 
-    it('caps idle time at 8 hours regardless of actual elapsed time', async () => {
+    it('caps idle time at 12 hours regardless of actual elapsed time', async () => {
       mockPrisma.player.findUnique.mockResolvedValue(makePlayer(48, 1));
       const result = await service.getOfflineRewardPreview('player-1');
-      // floor(500 * 1 * 1.0 * 8) = 4000
-      expect(result.goldEarned).toBe(4000);
-      expect(result.cappedAt).toBe(8);
+      // floor((500+100) * 1 * 1.0 * 12) = 7200
+      expect(result.goldEarned).toBe(7200);
+      expect(result.cappedAt).toBe(12);
     });
 
     it('scales with player level using level^1.4 formula', async () => {
       mockPrisma.player.findUnique.mockResolvedValue(makePlayer(1, 10));
       const result = await service.getOfflineRewardPreview('player-1');
-      const expected = Math.floor(500 * Math.pow(10, 1.4) * 1.0 * 1);
+      // (500 + 100*1) * 10^1.4 * 1.0 * 1
+      const expected = Math.floor(600 * Math.pow(10, 1.4) * 1.0 * 1);
       expect(result.goldEarned).toBe(expected);
     });
 

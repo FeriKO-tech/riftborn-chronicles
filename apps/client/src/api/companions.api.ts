@@ -4,6 +4,7 @@ import type {
   ApiSuccess,
   CompanionStateDto,
   CompanionTemplateDto,
+  CompanionUpgradeResponseDto,
 } from '@riftborn/shared';
 
 export const companionsApi = {
@@ -20,6 +21,14 @@ export const companionsApi = {
   activate: async (templateId: string): Promise<ActivateCompanionResponseDto> => {
     const { data } = await apiClient.post<ApiSuccess<ActivateCompanionResponseDto>>(
       '/companions/activate',
+      { templateId },
+    );
+    return data.data;
+  },
+
+  upgrade: async (templateId: string): Promise<CompanionUpgradeResponseDto> => {
+    const { data } = await apiClient.post<ApiSuccess<CompanionUpgradeResponseDto>>(
+      '/companions/upgrade',
       { templateId },
     );
     return data.data;

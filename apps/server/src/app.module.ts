@@ -15,6 +15,9 @@ import { BossModule } from './boss/boss.module';
 import { PvpModule } from './pvp/pvp.module';
 import { ShopModule } from './shop/shop.module';
 import { StagesModule } from './stages/stages.module';
+import { LeaderboardModule } from './leaderboard/leaderboard.module';
+import { SkillsModule } from './skills/skills.module';
+import { AchievementsModule } from './achievements/achievements.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -37,6 +40,9 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     ShopModule,
     DailyRewardModule,
     QuestModule,
+    LeaderboardModule,
+    SkillsModule,
+    AchievementsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },

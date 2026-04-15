@@ -33,7 +33,7 @@ export const ITEM_TEMPLATE_LIST = [...ITEM_TEMPLATES.values()];
 export const DROP_CHANCE: Record<string, number> = {
   NORMAL: 0.06,
   ELITE: 0.28,
-  BOSS: 0.80,
+  BOSS: 1.00,
 };
 
 // ── Rarity weights by zone tier ────────────────────────────────────────────

@@ -98,7 +98,7 @@ function makeBossTemplate(
 
 // ── Handcrafted zone definitions (zones 1–10) ────────────────────────────────
 
-const ZONE_DEFS: ZoneSceneDefinition[] = [
+const ZONE_DEFS: Omit<ZoneSceneDefinition, 'bossAtk'>[] = [
   {
     zone: 1,
     name: 'Shattered Approach',
@@ -310,7 +310,7 @@ const ZONE_DEFS: ZoneSceneDefinition[] = [
 ];
 
 const ZONE_DEF_MAP: ReadonlyMap<number, ZoneSceneDefinition> = new Map(
-  ZONE_DEFS.map((d) => [d.zone, d]),
+  ZONE_DEFS.map((d) => [d.zone, { ...d, bossAtk: d.boss.attack }]),
 );
 
 // ── Generator for zones 11+ ──────────────────────────────────────────────────
@@ -331,6 +331,7 @@ function generateZoneSceneDefinition(zone: number): ZoneSceneDefinition {
     bossName: `Void Sovereign Mk.${zone}`,
     bossIcon: '💀',
     bossMaxHp: bossHp,
+    bossAtk: Math.floor(bossPow * 0.9),
     spawnPoints: [...STANDARD_SPAWN_POINTS],
     enemyTypes: [
       beast(zone, `Zone ${zone} Wraith`, '#374151'),

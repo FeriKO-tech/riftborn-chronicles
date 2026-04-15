@@ -16,6 +16,8 @@ import { PrismaService } from '../database/prisma.service';
 import { CombatService } from '../combat/combat.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { getCompanionBonus } from '../companions/data/companions.data';
+import { AchievementsService } from '../achievements/achievements.service';
+import { QuestService } from '../quests/quest.service';
 import { getZoneSceneDefinition } from './data/zone-definitions.data';
 
 @Injectable()
@@ -24,6 +26,8 @@ export class CombatSceneService {
     private readonly prisma: PrismaService,
     private readonly combat: CombatService,
     private readonly inventory: InventoryService,
+    private readonly achievements: AchievementsService,
+    private readonly quests: QuestService,
   ) {}
 
   // ── Scene config (initial load) ───────────────────────────────────────────
@@ -46,8 +50,8 @@ export class CombatSceneService {
 
     // Compute hero stats for the client scene
     const equipBonus = await this.inventory.getEquippedBonuses(playerId);
-    const companionBonus = getCompanionBonus(
-      (player as { activeCompanionId?: string | null }).activeCompanionId,
+    const companionBonus = await this.getCompanionBonusWithLevel(
+      playerId, (player as { activeCompanionId?: string | null }).activeCompanionId,
     );
     const stats = this.combat.computePlayerStats(
       player.level,
@@ -108,8 +112,8 @@ export class CombatSceneService {
     );
 
     const equipBonus = await this.inventory.getEquippedBonuses(playerId);
-    const companionBonus = getCompanionBonus(
-      (player as { activeCompanionId?: string | null }).activeCompanionId,
+    const companionBonus = await this.getCompanionBonusWithLevel(
+      playerId, (player as { activeCompanionId?: string | null }).activeCompanionId,
     );
     const newPowerScore = this.combat.computePowerScore(
       newLevel,
@@ -118,7 +122,7 @@ export class CombatSceneService {
       companionBonus,
     );
 
-    // Grant gold + exp, persist player progression
+    // Grant gold + exp, persist player progression + increment totalKills
     await this.prisma.$transaction([
       this.prisma.playerCurrencies.update({
         where: { playerId },
@@ -126,7 +130,7 @@ export class CombatSceneService {
       }),
       this.prisma.player.update({
         where: { id: playerId },
-        data: { experience: newExp, level: newLevel, powerScore: newPowerScore },
+        data: { experience: newExp, level: newLevel, powerScore: newPowerScore, totalKills: { increment: 1 } },
       }),
     ]);
 
@@ -135,6 +139,26 @@ export class CombatSceneService {
     const drop = await this.inventory.rollDrop(playerId, dto.zone, 'NORMAL', dropSeed);
 
     const bossUnlocked = updated.kills >= definition.requiredKills;
+
+    // Quest progress (fire-and-forget)
+    this.quests.updateBattleProgress(playerId, {
+      victory: true,
+      goldEarned: enemyType.goldReward,
+      zone: dto.zone,
+      room: updated.kills,
+      isBoss: false,
+    }).catch(() => undefined);
+
+    // Achievement check (fire-and-forget)
+    const freshPlayer = await this.prisma.player.findUnique({ where: { id: playerId }, select: { totalKills: true, bossKills: true, level: true } });
+    const freshCur = await this.prisma.playerCurrencies.findUnique({ where: { playerId }, select: { goldShards: true } });
+    const freshProgress = await this.prisma.stageProgress.findUnique({ where: { playerId }, select: { highestZone: true } });
+    this.achievements.checkAndUnlock(playerId, {
+      totalKills: freshPlayer?.totalKills ?? 0,
+      level: freshPlayer?.level ?? 1,
+      highestZone: freshProgress?.highestZone ?? 1,
+      totalGold: Number(freshCur?.goldShards ?? 0),
+    }).catch(() => undefined);
 
     return {
       kills: updated.kills,
@@ -176,30 +200,12 @@ export class CombatSceneService {
       );
     }
 
-    // Simulate boss fight
+    // Client-authoritative boss fight — server just validates kill count
+    // and grants rewards. If player couldn't beat boss, client won't call this.
     const equipBonus = await this.inventory.getEquippedBonuses(playerId);
-    const companionBonus = getCompanionBonus(
-      (player as { activeCompanionId?: string | null }).activeCompanionId,
+    const companionBonus = await this.getCompanionBonusWithLevel(
+      playerId, (player as { activeCompanionId?: string | null }).activeCompanionId,
     );
-    const playerStats = this.combat.computePlayerStats(
-      player.level,
-      player.class,
-      equipBonus,
-      companionBonus,
-    );
-    const sim = this.combat.simulateSingleEnemy(
-      playerStats,
-      definition.boss,
-      Date.now() ^ (zone * 31),
-    );
-
-    if (!sim.victory) {
-      return {
-        victory: false,
-        result: null,
-        combatState: this.buildCombatState(zone, kills, definition.requiredKills),
-      };
-    }
 
     // Boss defeated — advance zone
     const nextZone = Math.min(zone + 1, 100);
@@ -220,6 +226,9 @@ export class CombatSceneService {
     );
     const highestZone = Math.max(progress.highestZone, zone);
 
+    // Diamond bonus: 1 per zone, boss-only
+    const bossDiamonds = Math.max(1, Math.floor(zone * 0.5));
+
     await this.prisma.$transaction([
       this.prisma.stageProgress.update({
         where: { playerId },
@@ -227,15 +236,41 @@ export class CombatSceneService {
       }),
       this.prisma.playerCurrencies.update({
         where: { playerId },
-        data: { goldShards: { increment: BigInt(bossGold) } },
+        data: {
+          goldShards: { increment: BigInt(bossGold) },
+          voidCrystals: { increment: bossDiamonds },
+        },
       }),
       this.prisma.player.update({
         where: { id: playerId },
-        data: { experience: newExp, level: newLevel, powerScore: newPowerScore },
+        data: { experience: newExp, level: newLevel, powerScore: newPowerScore, bossKills: { increment: 1 } },
       }),
     ]);
 
-    void this.inventory.rollDrop(playerId, zone, 'BOSS', Date.now() ^ (zone * 97)).catch(() => undefined);
+    // Quest progress after boss kill (fire-and-forget)
+    this.quests.updateBattleProgress(playerId, {
+      victory: true,
+      goldEarned: bossGold,
+      zone,
+      room: 10,
+      isBoss: true,
+    }).catch(() => undefined);
+
+    // Achievement check after boss kill (fire-and-forget)
+    const freshP = await this.prisma.player.findUnique({ where: { id: playerId }, select: { totalKills: true, bossKills: true, level: true } });
+    const freshC = await this.prisma.playerCurrencies.findUnique({ where: { playerId }, select: { goldShards: true } });
+    this.achievements.checkAndUnlock(playerId, {
+      totalKills: freshP?.totalKills ?? 0,
+      bossKills: freshP?.bossKills ?? 0,
+      level: freshP?.level ?? 1,
+      highestZone: highestZone,
+      totalGold: Number(freshC?.goldShards ?? 0),
+    }).catch(() => undefined);
+
+    // Boss drop — always await so we can send the result
+    const bossDrop = await this.inventory
+      .rollDrop(playerId, zone, 'BOSS', Date.now() ^ (zone * 97))
+      .catch(() => ({ dropped: false, item: null } as const));
 
     const _ = leveledUp; // used by frontend via player state refresh
 
@@ -245,7 +280,16 @@ export class CombatSceneService {
         clearedZone: zone,
         newZone: nextZone,
         newZoneName: nextDef.name,
-        rewards: { goldBonus: bossGold },
+        rewards: {
+          goldBonus: bossGold,
+          expBonus: bossExp,
+          diamonds: bossDiamonds,
+          drop: {
+            dropped: bossDrop.dropped,
+            itemName: bossDrop.item?.name ?? null,
+            rarity: bossDrop.item?.rarity ?? null,
+          },
+        },
       },
       combatState: this.buildCombatState(nextZone, 0, nextDef.requiredKills),
     };
@@ -265,5 +309,14 @@ export class CombatSceneService {
       bossUnlocked: kills >= requiredKills,
       zoneCleared: false,
     };
+  }
+
+  private async getCompanionBonusWithLevel(playerId: string, activeCompanionId: string | null | undefined) {
+    if (!activeCompanionId) return getCompanionBonus(null);
+    const pc = await this.prisma.playerCompanion.findUnique({
+      where: { playerId_templateId: { playerId, templateId: activeCompanionId } },
+      select: { level: true },
+    });
+    return getCompanionBonus(activeCompanionId, pc?.level ?? 1);
   }
 }

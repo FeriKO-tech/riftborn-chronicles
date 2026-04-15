@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { CurrentPlayer } from '../common/decorators/current-player.decorator';
 import type { PvpFightResultDto, PvpStateDto, TokenPayload } from '@riftborn/shared';
+import { OpponentIdDto } from '../common/dto/id-param.dto';
 import { PlayersService } from '../players/players.service';
 import { PvpService } from './pvp.service';
 
@@ -21,7 +22,7 @@ export class PvpController {
   @HttpCode(HttpStatus.OK)
   async fight(
     @CurrentPlayer() payload: TokenPayload,
-    @Body() body: { opponentPlayerId: string },
+    @Body() body: OpponentIdDto,
   ): Promise<PvpFightResultDto> {
     const player = await this.playersService.findByAccountId(payload.sub);
     return this.pvpService.fight(player.id, body.opponentPlayerId);

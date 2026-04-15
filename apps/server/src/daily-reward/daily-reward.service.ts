@@ -25,11 +25,11 @@ export class DailyRewardService {
     const now = new Date();
 
     const canClaim = this.canClaimToday(record.lastClaimedAt, now);
-    const currentStreak = canClaim ? record.streak : 0;
-    const nextStreakDay = (currentStreak % 7) + 1;
-    const hoursUntilReset = record.lastClaimedAt
-      ? Math.max(0, RESET_HOURS - (now.getTime() - record.lastClaimedAt.getTime()) / 3_600_000)
-      : null;
+
+    // Hours until next midnight UTC
+    const nextMidnight = new Date(now);
+    nextMidnight.setUTCHours(24, 0, 0, 0);
+    const hoursUntilReset = Math.round((nextMidnight.getTime() - now.getTime()) / 3_600_000 * 10) / 10;
 
     return {
       canClaim,
@@ -38,7 +38,7 @@ export class DailyRewardService {
       lastClaimedAt: record.lastClaimedAt?.toISOString() ?? null,
       totalClaimed: record.totalClaimed,
       nextReward: this.computeReward(record.streak + 1),
-      hoursUntilReset: canClaim ? null : (hoursUntilReset !== null ? Math.round(hoursUntilReset * 10) / 10 : null),
+      hoursUntilReset: canClaim ? null : hoursUntilReset,
     };
   }
 
@@ -51,10 +51,13 @@ export class DailyRewardService {
       throw new ConflictException('Daily reward already claimed. Come back tomorrow!');
     }
 
-    // Streak: extend if claimed within 28h of last claim, reset otherwise
-    const streakBroken =
-      record.lastClaimedAt !== null &&
-      now.getTime() - record.lastClaimedAt.getTime() > RESET_HOURS * 3_600_000;
+    // Streak: extend if claimed yesterday (consecutive calendar day), reset otherwise
+    const streakBroken = (() => {
+      if (!record.lastClaimedAt) return false;
+      const lastDay = record.lastClaimedAt.toISOString().slice(0, 10);
+      const yesterday = new Date(now.getTime() - ONE_DAY_MS).toISOString().slice(0, 10);
+      return lastDay !== yesterday; // if last claim wasn't yesterday, streak resets
+    })();
 
     const newStreak = streakBroken ? 1 : record.streak + 1;
     const longestStreak = Math.max(record.longestStreak, newStreak);
@@ -109,7 +112,8 @@ export class DailyRewardService {
 
   private canClaimToday(lastClaimedAt: Date | null, now: Date): boolean {
     if (!lastClaimedAt) return true;
-    return now.getTime() - lastClaimedAt.getTime() >= ONE_DAY_MS;
+    // Reset at midnight UTC — claim is available if the UTC date has changed
+    return now.toISOString().slice(0, 10) !== lastClaimedAt.toISOString().slice(0, 10);
   }
 
   private async getOrCreate(playerId: string) {
